@@ -1,4 +1,4 @@
-/* KeySuite V4.22.06 — universal floating Back control for internal pages plus Quick Selection / Product Curve return support. */
+/* KeySuite V4.22.07 — universal floating Back control for internal pages plus Quick Selection / Product Curve return support. */
 (() => {
 'use strict';
 if(window.top!==window.self||window.__KEYSUITE_V40413_MODEL_RETURN__)return;
@@ -35,5 +35,5 @@ function showForDialog(dlg=$('productCurveDialog')){injectStyle();const b=ensure
 function syncAfterNavigation(){bindQuickButtons();const data=read(),active=activePage();if(!data||data.kind!=='quick')hideQuickButtons();else{const wanted=data.family==='ES'?'selectorEs':'selector';if(active===wanted){const b=quickButton(data.family);if(b)b.hidden=false}else if(active!=='dashboard')hideQuickButtons()}syncUniversalButton()}
 function boot(){injectStyle();bindQuickButtons();ensureUniversalButton();ensureDialogButton();const app=$('appView');if(app&&window.MutationObserver)new MutationObserver(syncUniversalButton).observe(app,{attributes:true,attributeFilter:['class']});window.addEventListener('KEYSUITE_PAGE_CHANGED',onPageChanged);document.addEventListener('click',event=>{if(event.target.closest?.('nav button[data-page],[data-go],[data-page="selector"],[data-page="selectorEs"]'))setTimeout(syncAfterNavigation,0)},true);window.addEventListener('popstate',()=>setTimeout(syncAfterNavigation,0));syncAfterNavigation()}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
-window.KeySuiteModelReturn={version:'4.22.06',markQuickSelection,returnQuick,showForDialog,hideQuickButtons,goBackPage,syncUniversalButton};
+window.KeySuiteModelReturn={version:'4.22.07',markQuickSelection,returnQuick,showForDialog,hideQuickButtons,goBackPage,syncUniversalButton};
 })();

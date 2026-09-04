@@ -10,6 +10,8 @@
   const products=()=>window.KEYSUITE_SECURE_DATA?.products||[];
   const g1Data=()=>window.KeySuiteCHCG1ProductData||{models:[],byModel:()=>null,dimensionFor:()=>null};
   const CHC_GENERATION_KEY='keysuite-v41412-product-chc-generation';
+  const C4_CURVE_RETURN_KEY='keysuite-v42207-product-c4-return';
+  let c4CurveReturnState=null;
   let selectedChcGeneration=(()=>{try{return sessionStorage.getItem(CHC_GENERATION_KEY)==='G1'?'G1':'G2'}catch(_){return 'G2'}})();
   const g1Products=()=>g1Data().models||[];
   const activeChcProducts=()=>selectedChcGeneration==='G1'?g1Products():products();
@@ -37,6 +39,50 @@
 
   function bindDefaultState(control){if(!control||control.dataset.defaultStateBound==='1')return;control.dataset.defaultStateBound='1';const refresh=()=>updateDefaultState(control);control.addEventListener('change',refresh);control.addEventListener('input',refresh);refresh()}
   function bindStaticDefaults(){['pumpMaterial','sealFaces','sealElastomer','connectionType','bareShaft','productMaterial','productSeal','productElastomer','productConnection','productBareShaft'].forEach(id=>bindDefaultState($(id)))}
+
+  function clearC4CurveReturnState(){
+    c4CurveReturnState=null;
+    try{sessionStorage.removeItem(C4_CURVE_RETURN_KEY)}catch(_){}
+  }
+  function captureCurveReturnState(family='CHC'){
+    const fam=String(family||'').toUpperCase();
+    if(fam!=='CHC'||selectedChcGeneration!=='G1'){clearC4CurveReturnState();return null}
+    const brandApi=window.KeySuiteV40001||window.KeySuiteV391||null;
+    const state={
+      kind:'CHC_G1_PRODUCT',generation:'G1',selectedSeries:String(selectedSeries||''),
+      search:String($('productModelInput')?.value||''),scrollY:Number(window.scrollY||0),
+      brandId:String(brandApi?.state?.selectedBrandId||(()=>{try{return sessionStorage.getItem('keysuite-v391-product-brand')||''}catch(_){return ''}})()),
+      family:'CHC',productGroup:'CHC_G1',createdAt:Date.now()
+    };
+    c4CurveReturnState=state;
+    try{sessionStorage.setItem(C4_CURVE_RETURN_KEY,JSON.stringify(state))}catch(_){}
+    return {...state};
+  }
+  function readC4CurveReturnState(snapshot){
+    if(snapshot&&snapshot.generation==='G1')return snapshot;
+    if(c4CurveReturnState?.generation==='G1')return c4CurveReturnState;
+    try{const x=JSON.parse(sessionStorage.getItem(C4_CURVE_RETURN_KEY)||'null');return x?.generation==='G1'?x:null}catch(_){return null}
+  }
+  function restoreCurveReturnState(snapshot){
+    const state=readC4CurveReturnState(snapshot);
+    if(!state||state.generation!=='G1')return false;
+    selectedChcGeneration='G1';
+    try{sessionStorage.setItem(CHC_GENERATION_KEY,'G1');sessionStorage.setItem('keysuite-v41413-product-group','CHC_G1');sessionStorage.setItem('keysuite-v391-product-family','CHC');if(state.brandId)sessionStorage.setItem('keysuite-v391-product-brand',state.brandId)}catch(_){}
+    try{
+      const brandApi=window.KeySuiteV40001||window.KeySuiteV391;
+      if(state.brandId&&brandApi?.setSelectedBrand)brandApi.setSelectedBrand(state.brandId,'CHC','productChc','CHC_G1');
+    }catch(_){}
+    try{window.KeySuiteApp?.showPage?.('productChc')}catch(_){}
+    selectedChcGeneration='G1';
+    if(state.selectedSeries)selectedSeries=String(state.selectedSeries);
+    const input=$('productModelInput');if(input)input.value=String(state.search||'');
+    renderSeries();renderModels();
+    try{window.KeySuiteV40001?.postBrandContext?.('productChc');window.KeySuiteV40001?.decorateProductDisplay?.()}catch(_){}
+    const y=Number.isFinite(Number(state.scrollY))?Number(state.scrollY):0;
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{try{window.scrollTo({top:y,behavior:'auto'})}catch(_){window.scrollTo(0,y)}}));
+    clearC4CurveReturnState();
+    return true;
+  }
 
   function ensureFrame(){const frame=$('productSelectorFrame');if(!frame)return frame;const wanted=selectedChcGeneration==='G1'?(frame.dataset.g1Src||'selector-g1/product.html?product=1&v=42104'):(frame.dataset.g2Src||frame.dataset.src||'selector/product.html?product=1&v=42104');const current=frame.getAttribute('src')||'about:blank';if(current==='about:blank'||(!current.includes(wanted.split('?')[0]))){frameReady=false;queued=null;frame.src=wanted}return frame}
   function options(){return {material:$('productMaterial')?.value||'SS304 (Cast Iron Connection)',seal:$('productSeal')?.value||'Car/Cer',elastomer:$('productElastomer')?.value||'Viton',connection:$('productConnection')?.value||'round',bare:!!$('productBareShaft')?.checked,hz:50}}
@@ -208,5 +254,5 @@
     bindStaticDefaults();
     $('closeProductCurve')?.addEventListener('click',()=>$('productCurveDialog')?.close());['esProductMaterial','esProductSealType','esProductSealMaterial','esProductElastomer'].forEach(id=>{const el=$(id);if(el){bindDefaultState(el);el.addEventListener('change',()=>{if(id==='esProductSealType')esProductSealSync();if(currentCurveFamily==='ES'&&currentCurveModel)sendEsProduct(currentCurveModel,'view')})}});esProductSealSync();$('esProductSearch')?.addEventListener('input',renderEs);$('gwsProductSeries')?.addEventListener('change',()=>{if($('gwsProductModel'))$('gwsProductModel').value='ALL';renderGws()});$('gwsProductModel')?.addEventListener('change',renderGws);$('keyplcProductSearch')?.addEventListener('input',renderKeyplc);
   });
-  window.KeySuiteProduct={pageShown,render,refreshCatalogue,setChcGeneration,getChcGeneration};
+  window.KeySuiteProduct={pageShown,render,refreshCatalogue,setChcGeneration,getChcGeneration,captureCurveReturnState,restoreCurveReturnState};
 })();
