@@ -10,8 +10,6 @@
   const products=()=>window.KEYSUITE_SECURE_DATA?.products||[];
   const g1Data=()=>window.KeySuiteCHCG1ProductData||{models:[],byModel:()=>null,dimensionFor:()=>null};
   const CHC_GENERATION_KEY='keysuite-v41412-product-chc-generation';
-  const C4_CURVE_RETURN_KEY='keysuite-v42207-product-c4-return';
-  let c4CurveReturnState=null;
   let selectedChcGeneration=(()=>{try{return sessionStorage.getItem(CHC_GENERATION_KEY)==='G1'?'G1':'G2'}catch(_){return 'G2'}})();
   const g1Products=()=>g1Data().models||[];
   const activeChcProducts=()=>selectedChcGeneration==='G1'?g1Products():products();
@@ -40,49 +38,10 @@
   function bindDefaultState(control){if(!control||control.dataset.defaultStateBound==='1')return;control.dataset.defaultStateBound='1';const refresh=()=>updateDefaultState(control);control.addEventListener('change',refresh);control.addEventListener('input',refresh);refresh()}
   function bindStaticDefaults(){['pumpMaterial','sealFaces','sealElastomer','connectionType','bareShaft','productMaterial','productSeal','productElastomer','productConnection','productBareShaft'].forEach(id=>bindDefaultState($(id)))}
 
-  function clearC4CurveReturnState(){
-    c4CurveReturnState=null;
-    try{sessionStorage.removeItem(C4_CURVE_RETURN_KEY)}catch(_){}
-  }
-  function captureCurveReturnState(family='CHC'){
-    const fam=String(family||'').toUpperCase();
-    if(fam!=='CHC'||selectedChcGeneration!=='G1'){clearC4CurveReturnState();return null}
-    const brandApi=window.KeySuiteV40001||window.KeySuiteV391||null;
-    const state={
-      kind:'CHC_G1_PRODUCT',generation:'G1',selectedSeries:String(selectedSeries||''),
-      search:String($('productModelInput')?.value||''),scrollY:Number(window.scrollY||0),
-      brandId:String(brandApi?.state?.selectedBrandId||(()=>{try{return sessionStorage.getItem('keysuite-v391-product-brand')||''}catch(_){return ''}})()),
-      family:'CHC',productGroup:'CHC_G1',createdAt:Date.now()
-    };
-    c4CurveReturnState=state;
-    try{sessionStorage.setItem(C4_CURVE_RETURN_KEY,JSON.stringify(state))}catch(_){}
-    return {...state};
-  }
-  function readC4CurveReturnState(snapshot){
-    if(snapshot&&snapshot.generation==='G1')return snapshot;
-    if(c4CurveReturnState?.generation==='G1')return c4CurveReturnState;
-    try{const x=JSON.parse(sessionStorage.getItem(C4_CURVE_RETURN_KEY)||'null');return x?.generation==='G1'?x:null}catch(_){return null}
-  }
-  function restoreCurveReturnState(snapshot){
-    const state=readC4CurveReturnState(snapshot);
-    if(!state||state.generation!=='G1')return false;
-    selectedChcGeneration='G1';
-    try{sessionStorage.setItem(CHC_GENERATION_KEY,'G1');sessionStorage.setItem('keysuite-v41413-product-group','CHC_G1');sessionStorage.setItem('keysuite-v391-product-family','CHC');if(state.brandId)sessionStorage.setItem('keysuite-v391-product-brand',state.brandId)}catch(_){}
-    try{
-      const brandApi=window.KeySuiteV40001||window.KeySuiteV391;
-      if(state.brandId&&brandApi?.setSelectedBrand)brandApi.setSelectedBrand(state.brandId,'CHC','productChc','CHC_G1');
-    }catch(_){}
-    try{window.KeySuiteApp?.showPage?.('productChc')}catch(_){}
-    selectedChcGeneration='G1';
-    if(state.selectedSeries)selectedSeries=String(state.selectedSeries);
-    const input=$('productModelInput');if(input)input.value=String(state.search||'');
-    renderSeries();renderModels();
-    try{window.KeySuiteV40001?.postBrandContext?.('productChc');window.KeySuiteV40001?.decorateProductDisplay?.()}catch(_){}
-    const y=Number.isFinite(Number(state.scrollY))?Number(state.scrollY):0;
-    requestAnimationFrame(()=>requestAnimationFrame(()=>{try{window.scrollTo({top:y,behavior:'auto'})}catch(_){window.scrollTo(0,y)}}));
-    clearC4CurveReturnState();
-    return true;
-  }
+  // V4.22.08: Curve return is owned by the shared Product dialog for C4/C6/ES.
+  // These compatibility methods remain so older runtime callers do not fail.
+  function captureCurveReturnState(){return null}
+  function restoreCurveReturnState(){return false}
 
   function ensureFrame(){const frame=$('productSelectorFrame');if(!frame)return frame;const wanted=selectedChcGeneration==='G1'?(frame.dataset.g1Src||'selector-g1/product.html?product=1&v=42104'):(frame.dataset.g2Src||frame.dataset.src||'selector/product.html?product=1&v=42104');const current=frame.getAttribute('src')||'about:blank';if(current==='about:blank'||(!current.includes(wanted.split('?')[0]))){frameReady=false;queued=null;frame.src=wanted}return frame}
   function options(){return {material:$('productMaterial')?.value||'SS304 (Cast Iron Connection)',seal:$('productSeal')?.value||'Car/Cer',elastomer:$('productElastomer')?.value||'Viton',connection:$('productConnection')?.value||'round',bare:!!$('productBareShaft')?.checked,hz:50}}
@@ -159,7 +118,7 @@
   function renderModelsG1(){
     const query=String($('productModelInput')?.value||'').trim().toLowerCase();let rows=g1Products().filter(p=>seriesName(p.model)===selectedSeries);if(query)rows=rows.filter(p=>String(p.model).toLowerCase().includes(query));
     $('productSeriesTitle').textContent=selectedSeries||'Models';$('productModelCount').textContent=`${rows.length} G1 model${rows.length===1?'':'s'}`;
-    $('productModelGrid').innerHTML=rows.length?rows.map(p=>`<div class="product-model-row" data-product-generation="G1"><h3>${esc(p.model)}</h3><div class="product-model-actions"><button class="btn secondary product-action-button" type="button" data-product-g1-view="${esc(p.model)}">Curve</button><button class="btn action-assembly product-action-button" type="button" data-product-g1-assembly="${esc(p.model)}">Assembly</button><button class="btn action-quote product-action-button" type="button" data-product-g1-add="${esc(p.model)}">Quote</button></div></div>`).join(''):'<div class="product-empty">No matching CHC C4 models.</div>';
+    $('productModelGrid').innerHTML=rows.length?rows.map(p=>`<div class="product-model-row" data-product-generation="G1"><h3>${esc(p.model)}</h3><div class="product-model-actions"><button class="btn secondary product-action-button" type="button" data-product-view="${esc(p.model)}" data-product-g1-view="${esc(p.model)}">Curve</button><button class="btn action-assembly product-action-button" type="button" data-product-g1-assembly="${esc(p.model)}">Assembly</button><button class="btn action-quote product-action-button" type="button" data-product-g1-add="${esc(p.model)}">Quote</button></div></div>`).join(''):'<div class="product-empty">No matching CHC C4 models.</div>';
     const grid=$('productModelGrid');
     grid.querySelectorAll('[data-product-g1-view]').forEach(button=>button.onclick=()=>{const model=button.dataset.productG1View;currentCurveFamily='CHC';currentCurveModel=model;$('productCurveTitle').textContent=model;const frame=ensureFrame(),host=$('productCurveHost');if(frame.parentNode!==host)host.appendChild(frame);frame.style.display='block';$('productCurveDialog').showModal();send(model,'view')});
     grid.querySelectorAll('[data-product-g1-add]').forEach(button=>button.onclick=()=>{if(!window.KeySuiteApp?.ensureQuotationPricingContext?.('add a product to the quotation'))return;send(button.dataset.productG1Add,'add')});

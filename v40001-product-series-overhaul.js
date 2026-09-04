@@ -14,7 +14,7 @@
   if(window.top!==window.self||window.__KEYSUITE_V40001_PRODUCT_SERIES_OVERHAUL__)return;
   window.__KEYSUITE_V40001_PRODUCT_SERIES_OVERHAUL__=true;
 
-  const VERSION='4.22.07';
+  const VERSION='4.22.09';
   const $=id=>document.getElementById(id);
   const norm=v=>String(v??'').trim();
   const low=v=>norm(v).toLowerCase();
@@ -32,7 +32,6 @@
   const lastDuty={CHC:null,ES:null};
   let nativeShowModal=null;
   let nativeClose=null;
-  let productReturnSnapshot=null;
   const visibleTextMaster=new WeakMap();
   const genericPdfFrames=new WeakSet();
 
@@ -167,7 +166,6 @@
   }
   function openInline(){
     currentFamily=activeFamily();const dlg=productDialog(),main=mainHost(),fr=frameFor(currentFamily);if(!dlg||!main||!fr)return false;
-    try{productReturnSnapshot=window.KeySuiteProduct?.captureCurveReturnState?.(currentFamily)||null}catch(_){productReturnSnapshot=null}
     lastScrollY=window.scrollY||0;if(dlg.parentNode!==main)main.appendChild(dlg);
     inlineOpen=true;main.classList.add('ks3963-product-curve-open');dlg.classList.add('ks3963-inline');dlg.setAttribute('open','');dlg.dataset.ks3963Inline='1';setBackLabel(true);fr.style.display='block';hideFrame(fr);
     const other=frameFor(currentFamily==='ES'?'CHC':'ES');if(other)other.style.display='none';
@@ -192,13 +190,11 @@
     ['CHC','ES'].forEach(f=>{const fr=frameFor(f);if(fr){fr.style.opacity='1';fr.style.visibility='visible'}});
     const floatingBack=document.getElementById('ks39445DialogReturn');if(floatingBack)floatingBack.hidden=true;
     setBackLabel(false);
-    let restoredProduct=false;
-    if(productReturnSnapshot){
-      try{restoredProduct=window.KeySuiteProduct?.restoreCurveReturnState?.(productReturnSnapshot)===true}catch(_){restoredProduct=false}
-      productReturnSnapshot=null;
-    }
     try{window.KeySuiteModelReturn?.syncUniversalButton?.()}catch(_){}
-    if(!restoredProduct){try{window.scrollTo({top:lastScrollY,behavior:'auto'})}catch(_){window.scrollTo(0,lastScrollY)}}
+    // V4.22.09: Product never leaves its model-list page while the inline curve is open.
+    // Close every family (CHC C4, CHC C6, ES) through the same path and simply reveal
+    // the already-live Product page underneath instead of rebuilding/restoring C4 state.
+    try{window.scrollTo({top:lastScrollY,behavior:'auto'})}catch(_){window.scrollTo(0,lastScrollY)}
     markVersion();return true;
   }
   function forceCloseInline(){return closeInline(true)}
