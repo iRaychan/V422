@@ -807,7 +807,7 @@ aside::-webkit-scrollbar{width:0;height:0;display:none}
         <div><label>Supply</label><label id="bareShaftControl" class="default-choice-control"><input id="bareShaft" type="checkbox" data-default-checked="false"> Bare Shaft Pump</label></div>
       </div>
       <div class="card" style="padding:0;overflow:hidden">
-        <iframe id="selectorFrame" src="selector/index.html?v=42205" data-src="selector/index.html?v=42205" data-g2-src="selector/index.html?v=42205" data-g1-src="selector-g1/index.html?v=42205" title="KeySelector CHC C6 Series" style="width:100%;height:1900px;border:0;display:block"></iframe>
+        <iframe id="selectorFrame" src="selector/index.html?v=42206" data-src="selector/index.html?v=42206" data-g2-src="selector/index.html?v=42206" data-g1-src="selector-g1/index.html?v=42206" title="KeySelector CHC C6 Series" style="width:100%;height:1900px;border:0;display:block"></iframe>
       </div>
     </section>
 
@@ -832,7 +832,7 @@ aside::-webkit-scrollbar{width:0;height:0;display:none}
         <div class="card"><h2>CHC Series</h2><div id="productSeriesList" class="product-series-list"></div></div>
         <div class="card"><div class="page-title-row" style="margin-bottom:12px"><div><h2 id="productSeriesTitle" style="margin:0">Models</h2><div id="productModelCount" class="muted"></div></div></div><div id="productModelGrid" class="product-model-grid"></div></div>
       </div>
-      <iframe id="productSelectorFrame" src="about:blank" data-src="selector/product.html?product=1&v=42205" data-g2-src="selector/product.html?product=1&v=42205" data-g1-src="selector-g1/product.html?product=1&v=42205" title="CHC Product Curve" style="display:none"></iframe>
+      <iframe id="productSelectorFrame" src="about:blank" data-src="selector/product.html?product=1&v=42206" data-g2-src="selector/product.html?product=1&v=42206" data-g1-src="selector-g1/product.html?product=1&v=42206" title="CHC Product Curve" style="display:none"></iframe>
     </section>
 
     <section id="productGws" class="page">
@@ -1914,10 +1914,10 @@ aside::-webkit-scrollbar{width:0;height:0;display:none}
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="permissions.js?v=41707"></script>
-<script src="v40407-role-authority.js?v=42205"></script>
+<script src="v40407-role-authority.js?v=42206"></script>
 <script src="applications.js?v=409"></script>
 <script src="assembly.js?v=41913"></script>
-<script src="app.js?v=42205"></script>
+<script src="app.js?v=42206"></script>
 <script src="pricing.js?v=41700"></script>
 <script src="quotation-references.js?v=409"></script>
 <script src="categories.js?v=41700"></script>
@@ -1926,7 +1926,7 @@ aside::-webkit-scrollbar{width:0;height:0;display:none}
 <script src="chc-g1-product-data-v41411.js?v=42115"></script>
 <script src="product.js?v=42115"></script>
 <script src="manifold.js?v=41412"></script>
-<script src="roles.js?v=42205"></script>
+<script src="roles.js?v=42206"></script>
 <script src="motor.js?v=409"></script>
 <script src="coupling.js?v=409"></script>
 <script src="baseplate.js?v=409"></script>
@@ -2001,7 +2001,7 @@ aside::-webkit-scrollbar{width:0;height:0;display:none}
     try{sessionStorage.setItem(STORAGE_KEY,generation)}catch(_){}
     const frame=document.getElementById('selectorFrame');
     if(frame){
-      const wanted=generation==='G1'?(frame.dataset.g1Src||'selector-g1/index.html?v=42205'):(frame.dataset.g2Src||frame.dataset.src||'selector/index.html?v=42205');
+      const wanted=generation==='G1'?(frame.dataset.g1Src||'selector-g1/index.html?v=42206'):(frame.dataset.g2Src||frame.dataset.src||'selector/index.html?v=42206');
       const current=String(frame.getAttribute('src')||'');
       const expectedPath=generation==='G1'?'selector-g1/index.html':'selector/index.html';
       if(!current.includes(expectedPath))frame.setAttribute('src',wanted);
@@ -2013,7 +2013,7 @@ aside::-webkit-scrollbar{width:0;height:0;display:none}
     if(hint)hint.textContent=`Select a CHC ${generation==='G1'?'C4':'C6'} pumpset, then use Assembly or Quote in the result panel.`;
     return generation;
   }
-  window.KeySuiteCHCSelection={version:'4.22.05',setGeneration,getGeneration:()=>generation};
+  window.KeySuiteCHCSelection={version:'4.22.06',setGeneration,getGeneration:()=>generation};
   document.addEventListener('click',event=>{
     const button=event.target.closest('button[data-page="selector"][data-generation]');
     if(button)setGeneration(button.dataset.generation);
@@ -2022,7 +2022,7 @@ aside::-webkit-scrollbar{width:0;height:0;display:none}
   else setGeneration(generation);
 })();
 </script>
-<script src="v41200-bootstrap.js?v=42205"></script>
+<script src="v41200-bootstrap.js?v=42206"></script>
 
 <script id="v41412-static-product-generation">
 document.addEventListener('click',event=>{

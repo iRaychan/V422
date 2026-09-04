@@ -14,7 +14,7 @@
   if(window.top!==window.self||window.__KEYSUITE_V40001_PRODUCT_SERIES_OVERHAUL__)return;
   window.__KEYSUITE_V40001_PRODUCT_SERIES_OVERHAUL__=true;
 
-  const VERSION='4.22.05';
+  const VERSION='4.22.06';
   const $=id=>document.getElementById(id);
   const norm=v=>String(v??'').trim();
   const low=v=>norm(v).toLowerCase();
@@ -171,22 +171,30 @@
     const other=frameFor(currentFamily==='ES'?'CHC':'ES');if(other)other.style.display='none';
     setTimeout(()=>{resizeFrame(fr);markVersion();window.scrollTo({top:0,behavior:'auto'})},0);return true;
   }
-  function closeInline(){
+  function closeInline(force=false){
     const dlg=productDialog(),main=mainHost();
-    const wasInline=!!(inlineOpen||dlg?.classList?.contains('ks3963-inline')||dlg?.dataset?.ks3963Inline==='1'||main?.classList?.contains('ks3963-product-curve-open'));
-    if(!wasInline)return false;
+    const wasInline=!!(inlineOpen||dlg?.open||dlg?.hasAttribute?.('open')||dlg?.classList?.contains('ks3963-inline')||dlg?.dataset?.ks3963Inline==='1'||main?.classList?.contains('ks3963-product-curve-open')||document.querySelector('.ks3963-product-curve-open'));
+    if(!wasInline&&!force)return false;
     inlineOpen=false;
-    main?.classList.remove('ks3963-product-curve-open');
-    dlg?.classList.remove('ks3963-inline');
-    dlg?.removeAttribute('data-ks3963-inline');
-    dlg?.removeAttribute('open');
-    try{if(dlg)dlg.returnValue=''}catch(_){}
+    // V4.22.06: reset every DOM marker instead of trusting the cached inlineOpen flag.
+    document.querySelectorAll('.ks3963-product-curve-open').forEach(el=>el.classList.remove('ks3963-product-curve-open'));
+    if(dlg){
+      try{if(dlg.open&&nativeClose)nativeClose('')}catch(_){}
+      dlg.classList.remove('ks3963-inline');
+      try{delete dlg.dataset.ks3963Inline}catch(_){dlg.removeAttribute('data-ks3963-inline')}
+      dlg.removeAttribute('data-ks3963-inline');
+      dlg.removeAttribute('open');
+      try{dlg.returnValue=''}catch(_){}
+    }
+    const host=$('productCurveHost');if(host)delete host.dataset.ks3963Loading;
+    ['CHC','ES'].forEach(f=>{const fr=frameFor(f);if(fr){fr.style.opacity='1';fr.style.visibility='visible'}});
     const floatingBack=document.getElementById('ks39445DialogReturn');if(floatingBack)floatingBack.hidden=true;
     setBackLabel(false);
     try{window.KeySuiteModelReturn?.syncUniversalButton?.()}catch(_){}
     try{window.scrollTo({top:lastScrollY,behavior:'auto'})}catch(_){window.scrollTo(0,lastScrollY)}
     markVersion();return true;
   }
+  function forceCloseInline(){return closeInline(true)}
   function installDialogBridge(){
     const dlg=productDialog();if(!dlg||dlg.dataset.ks3963Bridge==='1')return !!dlg;
     dlg.dataset.ks3963Bridge='1';nativeShowModal=HTMLDialogElement.prototype.showModal.bind(dlg);nativeClose=HTMLDialogElement.prototype.close.bind(dlg);
@@ -375,7 +383,7 @@
     document.addEventListener('click',event=>{setTimeout(()=>document.querySelectorAll('iframe').forEach(fr=>{let src='';try{src=fr.getAttribute('src')||fr.dataset.src||''}catch(_){}if(/selector\/index\.html/i.test(src)&&fr!==frameFor('CHC'))normalizeGenericChcFrame(fr)}),0);if(inlineOpen&&event.target?.closest?.('#keyButton,aside nav button,nav button'))closeInline();if(event.target?.closest?.('#keysuitePdf,#keysuiteMobileExport,.ks3942-pdf')){if(inlineOpen)lockSnapshot(currentFamily,activeFrame());scanGenericSelectorFrames()}setTimeout(markVersion,0)},true);
   }
   function init(){injectOuterStyle();installDialogBridge();bind();scanGenericSelectorFrames();markVersion();setTimeout(()=>{installDialogBridge();scanGenericSelectorFrames();markVersion()},120);setTimeout(()=>{installDialogBridge();scanGenericSelectorFrames();markVersion()},700);setTimeout(markVersion,1600)}
-  window.KeySuiteV40001ProductSeries={version:VERSION,refresh:()=>finalizeFrame(),snapshot:(f=currentFamily)=>snapshot(f,frameFor(f)),getDuty:f=>lastDuty[String(f||currentFamily).toUpperCase()]?{...lastDuty[String(f||currentFamily).toUpperCase()]}:null,clearDuty:f=>{lastDuty[String(f||currentFamily).toUpperCase()]=null},isOpen:()=>inlineOpen,currentFamily:()=>currentFamily,close:()=>closeInline()};
+  window.KeySuiteV40001ProductSeries={version:VERSION,refresh:()=>finalizeFrame(),snapshot:(f=currentFamily)=>snapshot(f,frameFor(f)),getDuty:f=>lastDuty[String(f||currentFamily).toUpperCase()]?{...lastDuty[String(f||currentFamily).toUpperCase()]}:null,clearDuty:f=>{lastDuty[String(f||currentFamily).toUpperCase()]=null},isOpen:()=>inlineOpen,currentFamily:()=>currentFamily,close:()=>closeInline(),forceClose:()=>forceCloseInline()};
   window.KeySuiteV3964ProductSeries=window.KeySuiteV40001ProductSeries;
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
