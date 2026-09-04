@@ -14,7 +14,7 @@
   if(window.top!==window.self||window.__KEYSUITE_V40001_PRODUCT_SERIES_OVERHAUL__)return;
   window.__KEYSUITE_V40001_PRODUCT_SERIES_OVERHAUL__=true;
 
-  const VERSION='4.06.21';
+  const VERSION='4.22.05';
   const $=id=>document.getElementById(id);
   const norm=v=>String(v??'').trim();
   const low=v=>norm(v).toLowerCase();
@@ -79,9 +79,9 @@
   }
   function baseContext(f,frame=frameFor(f)){
     let pin={};try{pin=frame?.contentWindow?.__KEYSUITE_MODEL_PRESENTATION_CONTEXT||{}}catch(_){}
-    const material=selectedMaterial(f,frame);
-    let ctx={};try{ctx=api()?.brandContext?.(pin.id||api()?.state?.selectedBrandId,f,material)||{}}catch(_){}
-    const merged={...pin,...ctx,material,family:f};
+    const material=selectedMaterial(f,frame),a=api(),productGroup=norm(pin.productGroup||a?.state?.selectedProductGroup||'');
+    let ctx={};try{ctx=a?.brandContext?.(pin.id||a?.state?.selectedBrandId,f,material,productGroup)||{}}catch(_){}
+    const merged={...pin,...ctx,material,family:f,productGroup:productGroup||ctx.productGroup||pin.productGroup||''};
     const brand=effectiveBrand(merged);
     merged.id=String(brand?.id||merged.id||'');
     merged.name=norm(brand?.brand_name)||norm(merged.name)||'B.G.Reich';
@@ -90,6 +90,13 @@
     merged.countryOfOrigin=norm(brand?.country_of_origin)||norm(merged.countryOfOrigin);
     merged.masterSeries=norm(merged.masterSeries)||f;
     merged.sellingSeries=norm(merged.sellingSeries)||norm(merged.brandSeries)||merged.masterSeries;
+    merged.brandSeries=norm(merged.brandSeries);
+    if(f==='CHC'){
+      try{
+        const base=a?.brandContext?.(merged.id||a?.state?.selectedBrandId,'CHC','SS304 (Cast Iron Connection)',merged.productGroup)||{};
+        merged.mainSellingSeries=norm(base.sellingSeries)||norm(base.brandSeries)||merged.brandSeries||merged.sellingSeries;
+      }catch(_){merged.mainSellingSeries=merged.brandSeries||merged.sellingSeries}
+    }else merged.mainSellingSeries=merged.brandSeries||merged.sellingSeries;
     return merged;
   }
   function aliasModel(model,ctx){
@@ -114,7 +121,7 @@
     }
     return {
       family:f,id:ctx.id,name:ctx.name,key:ctx.key,logo:effectiveLogo(ctx),countryOfOrigin:ctx.countryOfOrigin,
-      sellingSeries:ctx.sellingSeries||ctx.masterSeries||f,masterSeries:ctx.masterSeries||f,
+      sellingSeries:ctx.sellingSeries||ctx.masterSeries||f,mainSellingSeries:ctx.mainSellingSeries||ctx.brandSeries||ctx.sellingSeries||ctx.masterSeries||f,brandSeries:ctx.brandSeries||'',masterSeries:ctx.masterSeries||f,
       masterModel,displayModel:displayModel||masterModel,material:ctx.material,
       seal:f==='CHC'?selectedChcSeal(frame):'',elastomer:f==='CHC'?selectedChcElastomer(frame):'',
       applyBrandName:low(ctx.key)!=='b.g.reich'&&low(ctx.name)!=='b.g.reich',isMaster:low(ctx.key)==='b.g.reich'||low(ctx.name)==='b.g.reich'
@@ -165,7 +172,20 @@
     setTimeout(()=>{resizeFrame(fr);markVersion();window.scrollTo({top:0,behavior:'auto'})},0);return true;
   }
   function closeInline(){
-    if(!inlineOpen)return false;const dlg=productDialog(),main=mainHost();inlineOpen=false;main?.classList.remove('ks3963-product-curve-open');dlg?.classList.remove('ks3963-inline');dlg?.removeAttribute('data-ks3963-inline');dlg?.removeAttribute('open');setBackLabel(false);try{window.scrollTo({top:lastScrollY,behavior:'auto'})}catch(_){window.scrollTo(0,lastScrollY)}markVersion();return true;
+    const dlg=productDialog(),main=mainHost();
+    const wasInline=!!(inlineOpen||dlg?.classList?.contains('ks3963-inline')||dlg?.dataset?.ks3963Inline==='1'||main?.classList?.contains('ks3963-product-curve-open'));
+    if(!wasInline)return false;
+    inlineOpen=false;
+    main?.classList.remove('ks3963-product-curve-open');
+    dlg?.classList.remove('ks3963-inline');
+    dlg?.removeAttribute('data-ks3963-inline');
+    dlg?.removeAttribute('open');
+    try{if(dlg)dlg.returnValue=''}catch(_){}
+    const floatingBack=document.getElementById('ks39445DialogReturn');if(floatingBack)floatingBack.hidden=true;
+    setBackLabel(false);
+    try{window.KeySuiteModelReturn?.syncUniversalButton?.()}catch(_){}
+    try{window.scrollTo({top:lastScrollY,behavior:'auto'})}catch(_){window.scrollTo(0,lastScrollY)}
+    markVersion();return true;
   }
   function installDialogBridge(){
     const dlg=productDialog();if(!dlg||dlg.dataset.ks3963Bridge==='1')return !!dlg;
@@ -252,15 +272,18 @@
     const id=idsFor(f),go=doc.getElementById(id.go);if(go){go.textContent='Plot';go.title='Plot Required Duty on this selected model'}
     const reportTitle=$('productCurveTitle');if(reportTitle)reportTitle.textContent=`Product Curve · ${s.displayModel||s.masterModel||s.sellingSeries||f}`;
     if(f==='CHC'){
-      normalizeChcMaterialOptions(doc);normalizeChcSeriesHeader(doc,s.sellingSeries||'CHC');
+      const mainSeries=s.mainSellingSeries||s.brandSeries||s.sellingSeries||'CHC';
+      normalizeChcMaterialOptions(doc);normalizeChcSeriesHeader(doc,mainSeries);
       const model=doc.querySelector('.selection-model');if(model&&s.displayModel)model.textContent=s.displayModel;
-      const hdr=doc.querySelector('header');if(hdr){const h1=hdr.querySelector('h1');if(h1)h1.textContent=`${s.sellingSeries||'CHC'} Series`;const logo=hdr.querySelector('img.brand-logo,img');if(logo&&s.logo){logo.src=s.logo;logo.alt=s.name||'Brand'}hdr.querySelectorAll('.keysuite-header-actions').forEach(a=>a.style.display='flex')}
+      const sub=doc.querySelector('.selection-sub');if(sub){const raw=sub.dataset.ks42205MasterText||sub.textContent||'';if(!sub.dataset.ks42205MasterText)sub.dataset.ks42205MasterText=raw;sub.textContent=aliasText(raw,s)}
+      const hdr=doc.querySelector('header');if(hdr){const h1=hdr.querySelector('h1');if(h1)h1.textContent=`${mainSeries} Series`;const logo=hdr.querySelector('img.brand-logo,img');if(logo&&s.logo){logo.src=s.logo;logo.alt=s.name||'Brand'}hdr.querySelectorAll('.keysuite-header-actions').forEach(a=>a.style.display='flex')}
     }else{
       const top=doc.querySelector('.top');if(top){const logo=top.querySelector('.brand img');if(logo&&s.logo){logo.src=s.logo;logo.alt=s.name||'Brand'}const b=top.querySelector('.brand b');if(b)b.textContent=s.isMaster?'KeySelector ES':`${s.name||s.sellingSeries} - ${s.sellingSeries||'ES'} Series`;const sm=top.querySelector('.brand small');if(sm)sm.textContent='End Suction Pump Selection';const acts=top.querySelector('.actions');if(acts)acts.style.display='flex'}
       const h1=doc.querySelector('#summary h1');if(h1&&s.displayModel)h1.textContent=s.displayModel;
     }
     const walker=doc.createTreeWalker(doc.body,NodeFilter.SHOW_TEXT),nodes=[];while(walker.nextNode())nodes.push(walker.currentNode);
     nodes.forEach(node=>{const p=node.parentElement;if(!p||['SCRIPT','STYLE','TEXTAREA','OPTION'].includes(p.tagName))return;if(!visibleTextMaster.has(node))visibleTextMaster.set(node,node.nodeValue||'');const raw=visibleTextMaster.get(node)||'';const next=aliasText(raw,s);if(node.nodeValue!==next)node.nodeValue=next});
+    if(f==='CHC'){const mainSeries=s.mainSellingSeries||s.brandSeries||s.sellingSeries||'CHC';normalizeChcSeriesHeader(doc,mainSeries);const hdr=doc.querySelector('header h1');if(hdr)hdr.textContent=`${mainSeries} Series`;const model=doc.querySelector('.selection-model');if(model&&s.displayModel)model.textContent=s.displayModel}
     doc.querySelectorAll('td,span,div,p').forEach(el=>{if(el.children.length)return;const t=String(el.textContent||'');if(/\b1\s+Stages\b/i.test(t))el.textContent=t.replace(/\b1\s+Stages\b/gi,'1 Stage')});
     if(s.logo)doc.querySelectorAll('img.brand-logo,header img,.top .brand img').forEach(img=>{img.src=s.logo;img.alt=s.name||'Brand'});
     try{const payload=frame.contentWindow.keysuiteExportPayload||{};frame.contentWindow.keysuiteExportPayload={...payload,keysuite_brand_name:s.name,keysuite_brand_logo:s.logo,keysuite_selling_series:s.sellingSeries,keysuite_master_series:s.masterSeries,keysuite_display_model:s.displayModel,keysuite_master_model:s.masterModel,keysuite_material:s.material}}catch(_){}
@@ -352,7 +375,7 @@
     document.addEventListener('click',event=>{setTimeout(()=>document.querySelectorAll('iframe').forEach(fr=>{let src='';try{src=fr.getAttribute('src')||fr.dataset.src||''}catch(_){}if(/selector\/index\.html/i.test(src)&&fr!==frameFor('CHC'))normalizeGenericChcFrame(fr)}),0);if(inlineOpen&&event.target?.closest?.('#keyButton,aside nav button,nav button'))closeInline();if(event.target?.closest?.('#keysuitePdf,#keysuiteMobileExport,.ks3942-pdf')){if(inlineOpen)lockSnapshot(currentFamily,activeFrame());scanGenericSelectorFrames()}setTimeout(markVersion,0)},true);
   }
   function init(){injectOuterStyle();installDialogBridge();bind();scanGenericSelectorFrames();markVersion();setTimeout(()=>{installDialogBridge();scanGenericSelectorFrames();markVersion()},120);setTimeout(()=>{installDialogBridge();scanGenericSelectorFrames();markVersion()},700);setTimeout(markVersion,1600)}
-  window.KeySuiteV40001ProductSeries={version:VERSION,refresh:()=>finalizeFrame(),snapshot:(f=currentFamily)=>snapshot(f,frameFor(f)),getDuty:f=>lastDuty[String(f||currentFamily).toUpperCase()]?{...lastDuty[String(f||currentFamily).toUpperCase()]}:null,clearDuty:f=>{lastDuty[String(f||currentFamily).toUpperCase()]=null},isOpen:()=>inlineOpen,currentFamily:()=>currentFamily};
+  window.KeySuiteV40001ProductSeries={version:VERSION,refresh:()=>finalizeFrame(),snapshot:(f=currentFamily)=>snapshot(f,frameFor(f)),getDuty:f=>lastDuty[String(f||currentFamily).toUpperCase()]?{...lastDuty[String(f||currentFamily).toUpperCase()]}:null,clearDuty:f=>{lastDuty[String(f||currentFamily).toUpperCase()]=null},isOpen:()=>inlineOpen,currentFamily:()=>currentFamily,close:()=>closeInline()};
   window.KeySuiteV3964ProductSeries=window.KeySuiteV40001ProductSeries;
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();

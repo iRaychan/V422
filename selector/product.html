@@ -1000,9 +1000,11 @@ function keysuiteChcPresentationContext(){
 }
 function keysuiteChcPresentationAlias(value){
  let out=String(value??''),ctx=keysuiteChcPresentationContext(),target=String(ctx?.sellingSeries||ctx?.masterSeries||'').trim();
- if(target)out=out.replace(/^(?:CHCS|CHCN|CHC)\b/i,target);
+ if(target)out=out.replace(/\b(?:CHCS|CHCN|CHC)\b/gi,target);
  try{
   const logo=String(ctx?.logo||'').trim(),name=String(ctx?.name||'Brand').trim();
+  let main=String(ctx?.mainSellingSeries||ctx?.brandSeries||target||'').trim().replace(/\s+C[46]$/i,'').trim();
+  if(main){const h1=document.querySelector('header h1');if(h1){const span=h1.querySelector('span');if(span)span.textContent=`- ${main} Series`;else h1.textContent=`${main} Series`;}}
   if(logo){
    document.querySelectorAll('header .brand-logo,.brand-wrap > .brand-logo,.top > .brand img,.top .brand > img,img.brand-logo').forEach(img=>{if(img.getAttribute('src')!==logo)img.setAttribute('src',logo);img.alt=name;});
   }
