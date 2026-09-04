@@ -1857,7 +1857,7 @@ alternatives.innerHTML='';
   if(msg.type==='KEYSUITE_PRODUCT_DUTY'){if(productFrame)applyProductDuty(msg.flowM3h,msg.headM,{flowUnit:'m3h',headUnit:'m'});return;}
   if(msg.type==='KEYSUITE_PRODUCT_ACTION'){if(!productFrame)return;if(msg.action==='export')setTimeout(()=>exportPDF(msg.filename),60);else if(msg.action==='assembly')send('assembly');else if(msg.action==='quotation')send('quotation');return;}
   if(msg.type==='KEYSUITE_PRODUCT_MODEL'){
-   const payload=prepareProductModel(msg.model,msg.options||{});if(!payload){alert('This CHC model could not be loaded.');return}
+   const payload=prepareProductModel(msg.model,msg.options||{});if(!payload){if(productFrame){try{window.parent?.postMessage({type:'KEYSUITE_PRODUCT_CURVE_STATE',family:'CHC',model:String(msg.model||''),valid:false,error:'MODEL_NOT_FOUND'},'*')}catch(_){}}else alert('This CHC model could not be loaded.');return}
    if(['add','assembly'].includes(msg.action))window.parent?.postMessage({type:'KEYSUITE_ADD_SELECTION',route:msg.action==='add'?'quotation':msg.action,payload},'*');
    else if(msg.action==='export')setTimeout(()=>exportPDF(msg.filename),120);return;
   }
