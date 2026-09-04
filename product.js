@@ -117,7 +117,7 @@
 
   function renderModelsG1(){
     const query=String($('productModelInput')?.value||'').trim().toLowerCase();let rows=g1Products().filter(p=>seriesName(p.model)===selectedSeries);if(query)rows=rows.filter(p=>String(p.model).toLowerCase().includes(query));
-    $('productSeriesTitle').textContent=selectedSeries||'Models';$('productModelCount').textContent=`${rows.length} G1 model${rows.length===1?'':'s'}`;
+    $('productSeriesTitle').textContent=selectedSeries||'Models';$('productModelCount').textContent=`${rows.length} C4 model${rows.length===1?'':'s'}`;
     $('productModelGrid').innerHTML=rows.length?rows.map(p=>`<div class="product-model-row" data-product-generation="G1"><h3>${esc(p.model)}</h3><div class="product-model-actions"><button class="btn secondary product-action-button" type="button" data-product-g1-view="${esc(p.model)}">Curve</button><button class="btn action-assembly product-action-button" type="button" data-product-g1-assembly="${esc(p.model)}">Assembly</button><button class="btn action-quote product-action-button" type="button" data-product-g1-add="${esc(p.model)}">Quote</button></div></div>`).join(''):'<div class="product-empty">No matching CHC C4 models.</div>';
     const grid=$('productModelGrid');
     grid.querySelectorAll('[data-product-g1-view]').forEach(button=>button.onclick=()=>{const model=button.dataset.productG1View;currentCurveFamily='CHC';currentCurveModel=model;$('productCurveTitle').textContent=model;const frame=ensureFrame(),host=$('productCurveHost');if(frame.parentNode!==host)host.appendChild(frame);frame.style.display='block';$('productCurveDialog').showModal();send(model,'view')});
@@ -193,12 +193,14 @@
     try{sessionStorage.setItem(CHC_GENERATION_KEY,selectedChcGeneration)}catch(_){}
     const series=orderedSeries();if(!selectedSeries||!series.includes(selectedSeries))selectedSeries=series[0]||'';
     const input=$('productModelInput');if(input)input.value='';
-    const h1=document.querySelector('#productChc h1');if(h1)h1.textContent=`Product · CHC ${selectedChcGeneration==='G1'?'C4':'C6'}`;
+    const visibleGeneration=selectedChcGeneration==='G1'?'C4':'C6';
+    const h1=document.querySelector('#productChc h1');if(h1)h1.textContent=`Product · CHC ${visibleGeneration}`;
+    const seriesHeading=document.querySelector('#productChc .product-layout > .card:first-child h2');if(seriesHeading)seriesHeading.textContent=`CHC ${visibleGeneration} Series`;
     const help=document.querySelector('#productChc .page-title-row .muted');
     const frame=$('productSelectorFrame');if(frame){frameReady=false;queued=null;frame.src='about:blank'}
     if(help)help.textContent=selectedChcGeneration==='G1'
-      ?'CHC C4 hydraulic/product range. Curve, duty points, PDF, Quote and Assembly follow the CHC C6 format using the C4 hydraulic master data and IE2 motors.'
-      :'CHC C6 existing/current product range. Curve uses the original proven C6 Product curve path.';
+      ?'CHC C4 hydraulic/product range. Curve, duty points, PDF, Quote and Assembly use the C4 hydraulic master data and IE2 motors.'
+      :'CHC C6 current product range. Curve uses the C6 Product curve path.';
     render();
     return selectedChcGeneration;
   }

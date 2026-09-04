@@ -1,4 +1,4 @@
-# KeySuite V4.21.15 FULL CLEAN
+# KeySuite V4.22.11 FULL CLEAN
 
 Full-clean continuation built from the verified KeySuite V4.20.01 baseline.
 
@@ -86,3 +86,7 @@ No database migration is required. Deploy the `telegram-webhook` Edge Function.
 - ES guided hierarchy uses the hydraulic ES database so Pole / Series / Model choices cannot disappear because the price row lacks pole/rpm fields.
 - Manual 2 / 2P / 2 Pole / 4 / 4P / 4 Pole input is accepted as a fallback.
 - No database migration is required. Redeploy `telegram-webhook`.
+
+
+## V4.22.11
+See `README_V42211.md` for the CHC C4/G1 Price List V1.2 update and C4 selling-label cleanup.
