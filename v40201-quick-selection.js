@@ -14,13 +14,11 @@ const canQuick=()=>authority()?.can?.('use_quick_selection')??true;
 const locked=()=>authority()?.brandSeriesLocked?.()??false;
 const currentRole=()=>norm(authority()?.state?.access?.role||window.KEYSUITE_ACCESS?.role||window.KEYSUITE_PROFILE?.role||'viewer').toLowerCase();
 const isOwnerAccount=()=>currentRole()==='owner';
-const accountScopeReady=()=>isOwnerAccount()||authority()?.state?.loaded===true;
-const accountScopeKeys=()=>isOwnerAccount()?[]:(authority()?.scopeKeys?.()||[]).map(String);
-const accountAllows=(brandId,family)=>{
-  if(isOwnerAccount())return true;
+const accountScopeReady=()=>authority()?.state?.loaded===true;
+const accountScopeKeys=()=>(authority()?.scopeKeys?.()||[]).map(String);
+const accountAllows=(brandId,family,productGroup='')=>{
   const a=authority();if(!a?.state?.loaded)return false;
-  const set=new Set(accountScopeKeys()),bid=String(brandId||''),fam=upper(family);
-  return set.has(`${bid}|*`)||set.has(`${bid}|${fam}`);
+  return a?.isBrandSeriesAllowed?.(brandId,productGroup||family)===true;
 };
 const DEFAULT_CHC_MATERIAL='SS304 (Cast Iron Connection)';
 const FAMILIES=['CHC','ES'];
@@ -32,9 +30,8 @@ const isMaster=b=>String(b?.brand_type||'').toLowerCase()==='master'||norm(b?.br
 const brands=()=>((api()?.state?.brands)||[]).filter(b=>b&&b.active!==false&&!isKeylargo(b));
 const visibleBrands=()=>{
   const all=brands();
-  if(isOwnerAccount())return all;
   if(!accountScopeReady())return [];
-  return all.filter(b=>FAMILIES.some(f=>accountAllows(b.id,f)));
+  return all.filter(b=>['CHC_G1','CHC_G2','ES','MOTOR'].some(group=>accountAllows(b.id,hydraulicFamily(group)||group,group)));
 };
 const mappings=()=>((api()?.state?.mappings)||[]).filter(m=>m&&m.active!==false);
 const masterSeries=()=> 'CHC';
@@ -52,19 +49,18 @@ function entries(){
   brands().forEach(b=>{
     if(isMaster(b)){
       out.push({brand:b,family:'CHC',productGroup:'CHC_G1',key:keyOf(b.id,'CHC_G1')});
-      out.push({brand:b,family:'CHC',productGroup:'CHC_G2',key:keyOf(b.id,'CHC')});
+      out.push({brand:b,family:'CHC',productGroup:'CHC_G2',key:keyOf(b.id,'CHC_G2')});
       out.push({brand:b,family:'ES',productGroup:'ES',key:keyOf(b.id,'ES')});
       return;
     }
     const groups=mappings().filter(m=>String(m.brand_id)===String(b.id)).map(m=>normalizeGroup(m.master_family));
     // V4.21.02: G1 and G2 are separate CHC hydraulic generations.
     if(groups.includes('CHC_G1'))out.push({brand:b,family:'CHC',productGroup:'CHC_G1',key:keyOf(b.id,'CHC_G1')});
-    if(groups.includes('CHC_G2')||groups.includes('CHC'))out.push({brand:b,family:'CHC',productGroup:'CHC_G2',key:keyOf(b.id,'CHC')});
+    if(groups.includes('CHC_G2')||groups.includes('CHC'))out.push({brand:b,family:'CHC',productGroup:'CHC_G2',key:keyOf(b.id,'CHC_G2')});
     if(groups.includes('ES'))out.push({brand:b,family:'ES',productGroup:'ES',key:keyOf(b.id,'ES')});
   });
-  if(isOwnerAccount())return out;
   if(!accountScopeReady())return [];
-  return out.filter(e=>accountAllows(e.brand.id,e.family));
+  return out.filter(e=>accountAllows(e.brand.id,e.family,e.productGroup||e.family));
 }
 function priceGroupsForBrand(brandId){
   return [...new Set(mappings().filter(m=>String(m.brand_id)===String(brandId)).map(m=>{
@@ -158,7 +154,7 @@ const prefLocalKey=uid=>`keysuite-v39442-quick-pref-${uid||'local'}`;
 const legacyPrefLocalKey=uid=>`keysuite-v3944-quick-pref-${uid||'local'}`;
 async function loadPreference(){
   if(state.preferenceLoading)return;
-  if(!accountScopeReady()&&!isOwnerAccount()){renderPreference();return}
+  if(!accountScopeReady()){renderPreference();return}
   const all=entries();
   if(!all.length){state.savedKeys=new Set();state.prefLoaded=true;renderPreference();renderResults(true);return}
   state.preferenceLoading=true;
@@ -180,6 +176,9 @@ async function loadPreference(){
     let keys=[],enhancedKeys=[];
     if(Array.isArray(payload))keys=payload.map(k=>String(k).split('|').slice(0,2).join('|'));
     else if(payload&&typeof payload==='object'){keys=Array.isArray(payload.keys)?payload.keys:[];enhancedKeys=Array.isArray(payload.enhanced_keys)?payload.enhanced_keys:[];}
+    // V4.22.01: the old Quick Selection C6 key was Brand|CHC; migrate it to Brand|CHC_G2.
+    keys=keys.map(k=>String(k).replace(/\|CHC$/i,'|CHC_G2'));
+    enhancedKeys=enhancedKeys.map(k=>String(k).replace(/\|CHC$/i,'|CHC_G2'));
     if(!found)keys=all.map(e=>e.key);
     const valid=new Set(all.map(e=>e.key));
     state.savedKeys=new Set(keys.map(String).filter(k=>valid.has(k)));
@@ -235,7 +234,7 @@ function renderPreference(){
   const grid=$('ks39442PrefGrid');if(!grid)return;
   if(!api()?.state?.coreReady){renderBrandState();return}
   grid.innerHTML='';
-  if(!accountScopeReady()&&!isOwnerAccount()){
+  if(!accountScopeReady()){
     grid.innerHTML='<div class="ks39444-brand-state"><b>Loading account Brand / Series permissions…</b><div class="muted" style="margin-top:4px">Quick Selection waits for the Brand / Series assigned to this user account before showing any choices.</div></div>';
     return;
   }
@@ -387,7 +386,7 @@ window.addEventListener('KEYSUITE_CUSTOMER_BRAND_PREFERENCE_CHANGED',event=>{
 });
 window.addEventListener('KEYSUITE_BRANDS_ERROR',()=>{state.prefLoaded=false;renderBrandState()});
 window.addEventListener('KEYSUITE_V393_BRAND_CONTEXT_CHANGED',()=>{if(!api()?.state?.coreReady)return;if(!state.prefLoaded){loadPreference();return}const valid=new Set(entries().map(e=>e.key));state.savedKeys=new Set([...state.savedKeys].filter(k=>valid.has(k)));renderPreference();renderResults(true)});
-window.KeySuiteV39442Dashboard={version:'4.21.07',runSelected,renderResults,renderPreference,loadPreference,masterSeries,seriesFor,brandSeriesFor,cancelPending,removeMaterialControls,presentationContext};
+window.KeySuiteV39442Dashboard={version:'4.22.01',runSelected,renderResults,renderPreference,loadPreference,masterSeries,seriesFor,brandSeriesFor,cancelPending,removeMaterialControls,presentationContext};
 window.KeySuiteV3944Dashboard=window.KeySuiteV39442Dashboard;window.KeySuiteV39444Dashboard=window.KeySuiteV39442Dashboard;window.KeySuiteV39445Dashboard=window.KeySuiteV39442Dashboard;window.KeySuiteV39446Dashboard=window.KeySuiteV39442Dashboard;window.KeySuiteV39447Dashboard=window.KeySuiteV39442Dashboard;window.KeySuiteV39449Dashboard=window.KeySuiteV39442Dashboard;window.KeySuiteV394410Dashboard=window.KeySuiteV39442Dashboard;window.KeySuiteV40201Dashboard=window.KeySuiteV39442Dashboard;
 let attempts=0;function boot(){attempts++;if(setup())return;if(attempts<40)setTimeout(boot,200)}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();

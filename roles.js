@@ -117,15 +117,21 @@
       }
       const master=String(brand.brand_type||'').toLowerCase()==='master'||brandKey==='b.g.reich'||brandName==='b.g.reich';
       if(master){
-        ['CHC','ES'].forEach(family=>out.push({brand,family,key:`${brand.id}|${family}`,series:String(api?.brandSeriesFor?.(brand,family)||family)}));
+        [
+          ['CHC_G1','CHC'],
+          ['CHC_G2','CHC'],
+          ['ES','ES'],
+          ['MOTOR','MOTOR']
+        ].forEach(([group,family])=>out.push({brand,family,productGroup:group,key:`${brand.id}|${group}`,series:String(api?.brandSeriesFor?.(brand,group)||({CHC_G1:'CHC C4',CHC_G2:'CHC C6',ES:'End Suction',MOTOR:'Motor'}[group]||family))}));
         return;
       }
       const seen=new Set();
       maps.filter(m=>String(m.brand_id)===String(brand.id)).forEach(m=>{
-        const group=normalizeProductGroup(m.master_family),family=hydraulicFamily(group);
-        if(!family||seen.has(family))return;
-        seen.add(family);
-        out.push({brand,family,productGroup:group,key:`${brand.id}|${family}`,series:String(api?.brandSeriesFor?.(brand,group)||family)});
+        let group=normalizeProductGroup(m.master_family);if(group==='CHC')group='CHC_G2';
+        const family=hydraulicFamily(group);
+        if(!family||seen.has(group))return;
+        seen.add(group);
+        out.push({brand,family,productGroup:group,key:`${brand.id}|${group}`,series:String(api?.brandSeriesFor?.(brand,group)||family)});
       });
     });
     return out;
@@ -145,17 +151,18 @@
   function updateSelectionScopeNote(){
     const roleName=String(el('roleUserRole')?.value||'user'),note=el('roleSelectionScopeNote');if(!note)return;
     if(roleSelectionLocked(roleName)&&roleSelectionEnabled(roleName))note.innerHTML='<b>Role Brand Assigned:</b> only the Owner can authorize which active Brands / Series this user can see. Future OEM Brands appear here automatically. Keylargo and GWS house products are authorized here independently. Restricted users only see the Brands / Products assigned by the Owner.';
-    else note.textContent=isOwner()?'All active Brands from Brand Management appear here automatically. Keylargo and GWS are permanent KeySuite house-brand authorities and are always available here. Owner may authorize Brand / Series / Keylargo Product visibility; it becomes mandatory when “Change Brand / Series = No”.':'Brand / Series visibility is Owner-authorized and cannot be changed here.';
+    else note.textContent=isOwner()?'All active Brands from Brand Management appear here automatically. Keylargo and GWS are permanent KeySuite house-brand authorities. Role Brand / Series Assigned controls each account’s Product and Quick Selection visibility, including Owner; Change Brand / Series only controls whether the user may switch among assigned choices.':'Brand / Series visibility is Owner-authorized and cannot be changed here.';
   }
   function renderSelectionScopeEditor(user=editingUser){
     const grid=el('roleSelectionScopeGrid');if(!grid)return;
     const brands=selectionBrands(),entries=selectionEntries(),selected=new Set(scopeKeys(user?.selection_scope)),ownerCanAssign=isOwner();
+    const entrySelected=entry=>selected.has(entry.key)||(['CHC_G1','CHC_G2'].includes(normalizeProductGroup(entry.productGroup))&&selected.has(`${entry.brand.id}|CHC`));
     if(selectionScopeError){grid.innerHTML=`<div class="role-note" style="color:#991b1b">Selection authority database is not ready: ${esc(selectionScopeError)}. Run V41706_KEYLARGO_ROLE_SCOPE_PERSISTENCE.sql.</div>`;updateSelectionScopeNote();return}
     if(!brands.length){grid.innerHTML='<div class="role-note">Brand data is still loading. Reopen this user after Brand data is available.</div>';updateSelectionScopeNote();return}
     grid.innerHTML=brands.map(brand=>{
       const brandId=String(brand.id),allKey=`${brandId}|*`,allSelected=selected.has(allKey),mine=entries.filter(entry=>String(entry.brand.id)===brandId);
       const seriesHtml=mine.length
-        ?mine.map(entry=>`<label><input type="checkbox" data-selection-scope-key="${esc(entry.key)}" data-selection-brand-id="${esc(brandId)}" ${(allSelected||selected.has(entry.key))?'checked':''} ${(allSelected||!ownerCanAssign)?'disabled':''}> <span>${esc(entry.series||entry.family)}</span></label>`).join('')
+        ?mine.map(entry=>`<label><input type="checkbox" data-selection-scope-key="${esc(entry.key)}" data-selection-brand-id="${esc(brandId)}" ${(allSelected||entrySelected(entry))?'checked':''} ${(allSelected||!ownerCanAssign)?'disabled':''}> <span>${esc(entry.series||entry.family)}</span></label>`).join('')
         :'<div class="role-note role-selection-no-series">No Series mapped yet. Authorize <b>All Products / Series</b> to keep this Brand available when Series are added later.</div>';
       return `<div class="role-selection-brand" data-selection-brand-group="${esc(brandId)}"><label class="role-selection-brand-all"><input type="checkbox" data-selection-brand-all="${esc(allKey)}" ${allSelected?'checked':''} ${ownerCanAssign?'':'disabled'}> <b>${esc(brand.brand_name||'Brand')}</b><span>All Products / Series</span></label><div class="role-selection-series-list">${seriesHtml}</div></div>`;
     }).join('');

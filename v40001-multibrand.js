@@ -4,7 +4,7 @@
   if (window.__KEYSUITE_V394410_MULTIBRAND__) return;
   window.__KEYSUITE_V394410_MULTIBRAND__=true;
 
-  const VERSION='4.21.02';
+  const VERSION='4.22.01';
   const $=id=>document.getElementById(id);
   const clone=v=>JSON.parse(JSON.stringify(v??{}));
   const esc=v=>String(v??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -20,7 +20,7 @@
   const client=()=>window.KeySuiteAuth?.getClient?.()||null;
   const authority=()=>window.KeySuiteAuthority||null;
   const brandSeriesLocked=()=>!!authority()?.brandSeriesLocked?.();
-  const scopeEnforced=()=>authority()?.scopeEnforced?.()??(role()!=='owner');
+  const scopeEnforced=()=>authority()?.scopeEnforced?.()??true;
   const canUseProduct=()=>authority()?.can?.('use_product')??true;
   const resolveAuthorityTarget=(brandId,family)=>authority()?.resolveBrandSeries?.(brandId,String(family||'').toUpperCase())||null;
   const KEYLARGO_SCOPE_ID='KEYLARGO';
@@ -71,17 +71,17 @@
     if(!group)return false;
     return api.isPriceAllowed?.(String(brandId||''),group,cid)===true;
   };
-  const roleAllowsBrandId=brandId=>role()==='owner'||authority()?.isBrandAllowed?.(brandId)!==false;
-  const roleAllowsFamily=(brandId,family)=>role()==='owner'||authority()?.isBrandSeriesAllowed?.(brandId,family)!==false;
+  const roleAllowsBrandId=brandId=>authority()?.isBrandAllowed?.(brandId)!==false;
+  const roleAllowsFamily=(brandId,family,productGroup='')=>authority()?.isBrandSeriesAllowed?.(brandId,productGroup||family)!==false;
   const navigationCommercialBrands=()=>commercialBrands().filter(b=>{
     if(!roleAllowsBrandId(b.id))return false;
     if(!navigationCustomerId())return true;
-    return brandFamilies(b).some(f=>roleAllowsFamily(b.id,f.family)&&customerAllowsProduct(b.id,f.productGroup||f.family,f.family));
+    return brandFamilies(b).some(f=>roleAllowsFamily(b.id,f.family,f.productGroup||f.family)&&customerAllowsProduct(b.id,f.productGroup||f.family,f.family));
   });
   const navigationAllowsKeylargo=()=>{
     if(!roleAllowsBrandId(KEYLARGO_SCOPE_ID))return false;
     const families=BUILTIN_FAMILIES?.keylargo||[];
-    return families.some(f=>roleAllowsFamily(KEYLARGO_SCOPE_ID,f.family)&&customerAllowsProduct(KEYLARGO_SCOPE_ID,f.productGroup||f.family,f.family));
+    return families.some(f=>roleAllowsFamily(KEYLARGO_SCOPE_ID,f.family,f.productGroup||f.family)&&customerAllowsProduct(KEYLARGO_SCOPE_ID,f.productGroup||f.family,f.family));
   };
   const navigationAllowsGws=()=>{
     if(!roleAllowsFamily(GWS_SCOPE_ID,'TANK'))return false;
@@ -253,7 +253,7 @@
     return String(row?.dataset?.v391BrandId||source.v391_brand_id||pump.keysuite_brand_id||'');
   }
   function setSelectedBrand(brandId,family='',routePage='',productGroup=''){
-    let fam=baseFamily(family),group=normalizeProductGroup(productGroup||family)||fam,target=resolveAuthorityTarget(brandId,fam);
+    let fam=baseFamily(family),group=normalizeProductGroup(productGroup||family)||fam,target=resolveAuthorityTarget(brandId,group);
     if(scopeEnforced()){if(!target)return false;brandId=target.brandId;fam=baseFamily(target.family);if(!productGroup)group=normalizeProductGroup(target.family)||fam;}
     if(!customerAllowsProduct(brandId,group,fam))return false;
     const brand=byBrandId(brandId)||(scopeEnforced()?null:masterBrand()); if(!brand)return false;
@@ -264,7 +264,7 @@
     postBrandContext(routePage||null);return true;
   }
   function brandContext(brandId=state.selectedBrandId,family=state.selectedFamily,materialOverride='',productGroup=state.selectedProductGroup){
-    let fam=baseFamily(family),group=normalizeProductGroup(productGroup||family)||fam,target=resolveAuthorityTarget(brandId,fam);
+    let fam=baseFamily(family),group=normalizeProductGroup(productGroup||family)||fam,target=resolveAuthorityTarget(brandId,group);
     if(scopeEnforced()){if(!target)return null;brandId=target.brandId;fam=baseFamily(target.family);if(!productGroup)group=normalizeProductGroup(target.family)||fam;}
     if(!customerAllowsProduct(brandId,group,fam))return null;
     const brand=byBrandId(brandId)||(scopeEnforced()?null:masterBrand());
@@ -765,12 +765,12 @@
     const submenu=document.querySelector('.nav-group[data-nav-group="productMenu"] .nav-submenu');if(!submenu)return;
     if(!canUseProduct()){submenu.innerHTML='';return}
     if(brandSeriesLocked()){
-      const allowed=[];navigationCommercialBrands().forEach(b=>brandFamilies(b).forEach(f=>{if(authority()?.isBrandSeriesAllowed?.(b.id,f.family)&&customerAllowsProduct(b.id,f.productGroup||f.family,f.family))allowed.push({brand:b,...f})}));
+      const allowed=[];navigationCommercialBrands().forEach(b=>brandFamilies(b).forEach(f=>{if(authority()?.isBrandSeriesAllowed?.(b.id,f.productGroup||f.family)&&customerAllowsProduct(b.id,f.productGroup||f.family,f.family))allowed.push({brand:b,...f})}));
       const keylargo=keylargoContextBrand();
       const keyAllowed=navigationAllowsKeylargo()
-        ?BUILTIN_FAMILIES.keylargo.filter(f=>(role()==='owner'||authority()?.isBrandSeriesAllowed?.(KEYLARGO_SCOPE_ID,f.family))&&customerAllowsProduct(KEYLARGO_SCOPE_ID,f.productGroup||f.family,f.family))
+        ?BUILTIN_FAMILIES.keylargo.filter(f=>authority()?.isBrandSeriesAllowed?.(KEYLARGO_SCOPE_ID,f.productGroup||f.family)&&customerAllowsProduct(KEYLARGO_SCOPE_ID,f.productGroup||f.family,f.family))
         :[];
-      const gwsAllowed=navigationAllowsGws()&&(role()==='owner'||authority()?.isBrandSeriesAllowed?.(GWS_SCOPE_ID,'TANK'))&&customerAllowsProduct(GWS_SCOPE_ID,'GWS','TANK');
+      const gwsAllowed=navigationAllowsGws()&&authority()?.isBrandSeriesAllowed?.(GWS_SCOPE_ID,'TANK')&&customerAllowsProduct(GWS_SCOPE_ID,'GWS','TANK');
       submenu.innerHTML='<div class="v391-brand-tree"><details class="v391-keylargo-root"><summary>Keylargo</summary><div id="v41702KeylargoAssignedProducts"></div></details><details class="v391-gws-root"><summary>GWS</summary><div id="v41708GwsAssignedProducts"></div></details><div id="v40407AssignedProductTree"></div></div>';
       const keyRoot=submenu.querySelector('.v391-keylargo-root'),gwsRoot=submenu.querySelector('.v391-gws-root'),keyHost=$('v41702KeylargoAssignedProducts'),gwsHost=$('v41708GwsAssignedProducts'),host=$('v40407AssignedProductTree');if(!keyHost||!gwsHost||!host)return;
 
@@ -805,7 +805,7 @@
     const navBrands=navigationCommercialBrands();
     const bg=navBrands.find(b=>String(b.brand_key||'').toLowerCase()==='b.g.reich'||String(b.brand_name||'').toLowerCase()==='b.g.reich')||null;
     const tesk=navBrands.find(b=>String(b.brand_key||'').toLowerCase()==='tesk'||String(b.brand_name||'').toLowerCase()==='tesk')||null;
-    const addFamilyButtons=(host,b,families)=>{if(!host||!b)return;families.filter(f=>(role()==='owner'||authority()?.isBrandSeriesAllowed?.(b.id,f.family))&&customerAllowsProduct(b.id,f.productGroup||f.family,f.family)).forEach(f=>{const btn=document.createElement('button');btn.type='button';btn.className='v391-family-btn';btn.textContent=f.label;btn.dataset.brandId=b.id;btn.dataset.family=f.family;btn.dataset.page=f.page;if(f.generation)btn.dataset.generation=f.generation;const genOk=!f.generation||productChcGeneration()===f.generation;if(String(state.selectedBrandId)===String(b.id)&&String(state.selectedFamily)===f.family&&genOk)btn.classList.add('active');btn.onclick=()=>{setSelectedBrand(b.id,f.family,f.page,f.productGroup||f.family);if(f.generation)activateChcGeneration(f.generation);document.querySelectorAll('.v391-family-btn').forEach(x=>x.classList.remove('active'));btn.classList.add('active');window.KeySuiteApp?.showPage?.(f.page);setTimeout(()=>{postBrandContext(f.page);decorateProductDisplaySoon();},100);};host.appendChild(btn)});};
+    const addFamilyButtons=(host,b,families)=>{if(!host||!b)return;families.filter(f=>authority()?.isBrandSeriesAllowed?.(b.id,f.productGroup||f.family)&&customerAllowsProduct(b.id,f.productGroup||f.family,f.family)).forEach(f=>{const btn=document.createElement('button');btn.type='button';btn.className='v391-family-btn';btn.textContent=f.label;btn.dataset.brandId=b.id;btn.dataset.family=f.family;btn.dataset.page=f.page;if(f.generation)btn.dataset.generation=f.generation;const genOk=!f.generation||productChcGeneration()===f.generation;if(String(state.selectedBrandId)===String(b.id)&&String(state.selectedFamily)===f.family&&genOk)btn.classList.add('active');btn.onclick=()=>{setSelectedBrand(b.id,f.family,f.page,f.productGroup||f.family);if(f.generation)activateChcGeneration(f.generation);document.querySelectorAll('.v391-family-btn').forEach(x=>x.classList.remove('active'));btn.classList.add('active');window.KeySuiteApp?.showPage?.(f.page);setTimeout(()=>{postBrandContext(f.page);decorateProductDisplaySoon();},100);};host.appendChild(btn)});};
     if(bg)addFamilyButtons(bgHost,bg,brandFamilies(bg));else tree.querySelector('.v391-bgreich-root')?.remove();
     if(tesk&&brandFamilies(tesk).length)addFamilyButtons(teskHost,tesk,brandFamilies(tesk));else tree.querySelector('.v391-tesk-root')?.remove();
     // V4.13: GWS is a first-class expandable left-panel group below TESK.
@@ -827,7 +827,7 @@
       otherBrands.forEach(b=>{const families=brandFamilies(b);if(!families.length)return;const d=document.createElement('details');d.innerHTML=`<summary>${esc(b.brand_name)}</summary><div></div>`;const inner=d.lastElementChild;addFamilyButtons(inner,b,families);brandHost.appendChild(d);});
       if(!brandHost.children.length)tree.querySelector('.v391-brand-root')?.remove();
     }
-    if(navigationAllowsKeylargo())BUILTIN_FAMILIES.keylargo.slice().filter(f=>(role()==='owner'||authority()?.isBrandSeriesAllowed?.(KEYLARGO_SCOPE_ID,f.family))&&customerAllowsProduct(KEYLARGO_SCOPE_ID,f.productGroup||f.family,f.family)).sort((a,b)=>a.label.localeCompare(b.label,undefined,{numeric:true,sensitivity:'base'})).forEach(f=>{const btn=document.createElement('button');btn.type='button';btn.className='v391-family-btn';btn.textContent=f.label;btn.dataset.brandId=KEYLARGO_SCOPE_ID;btn.dataset.family=f.family;btn.dataset.page=f.page;if(String(state.selectedBrandId)===KEYLARGO_SCOPE_ID&&String(state.selectedFamily)===f.family)btn.classList.add('active');btn.onclick=()=>{state.selectedBrandId=KEYLARGO_SCOPE_ID;state.selectedFamily=f.family;state.selectedProductGroup=f.productGroup||f.family;document.querySelectorAll('.v391-family-btn').forEach(x=>x.classList.remove('active'));btn.classList.add('active');window.KeySuiteApp?.showPage?.(f.page);};keyHost.appendChild(btn);});
+    if(navigationAllowsKeylargo())BUILTIN_FAMILIES.keylargo.slice().filter(f=>authority()?.isBrandSeriesAllowed?.(KEYLARGO_SCOPE_ID,f.productGroup||f.family)&&customerAllowsProduct(KEYLARGO_SCOPE_ID,f.productGroup||f.family,f.family)).sort((a,b)=>a.label.localeCompare(b.label,undefined,{numeric:true,sensitivity:'base'})).forEach(f=>{const btn=document.createElement('button');btn.type='button';btn.className='v391-family-btn';btn.textContent=f.label;btn.dataset.brandId=KEYLARGO_SCOPE_ID;btn.dataset.family=f.family;btn.dataset.page=f.page;if(String(state.selectedBrandId)===KEYLARGO_SCOPE_ID&&String(state.selectedFamily)===f.family)btn.classList.add('active');btn.onclick=()=>{state.selectedBrandId=KEYLARGO_SCOPE_ID;state.selectedFamily=f.family;state.selectedProductGroup=f.productGroup||f.family;document.querySelectorAll('.v391-family-btn').forEach(x=>x.classList.remove('active'));btn.classList.add('active');window.KeySuiteApp?.showPage?.(f.page);};keyHost.appendChild(btn);});
   }
 
 
@@ -977,7 +977,7 @@
     let usable=0;
     brands.forEach(brand=>{
       let families=pumpFamilies(brand);
-      if(scopeEnforced())families=families.filter(f=>authority()?.isBrandSeriesAllowed?.(brand.id,f.family));
+      if(scopeEnforced())families=families.filter(f=>authority()?.isBrandSeriesAllowed?.(brand.id,f.productGroup||f.family));
       if(!families.length)return;
       const d=document.createElement('details');
       d.className='v391-direct-brand-root v41223-selector-brand';
@@ -1066,7 +1066,7 @@
         try{const seriesRes=await withTimeout(c.from('ks_oem_brand_series').select('*').eq('company_id',cid),12000,'Brand Series');if(seriesRes?.error)throw seriesRes.error;state.series=seriesRes?.data||[]}
         catch(seriesError){state.series=[];console.warn('KeySuite V3.9.4.4.11 Brand Series table unavailable; using safe built-in/family fallback:',seriesError)}
 
-        const stored=sessionStorage.getItem('keysuite-v391-product-brand'),storedFamily=baseFamily(sessionStorage.getItem('keysuite-v391-product-family')||'CHC'),storedGroup=normalizeProductGroup(sessionStorage.getItem('keysuite-v41413-product-group')||storedFamily),authorized=brandSeriesLocked()?resolveAuthorityTarget(stored,storedFamily):null;if(brandSeriesLocked()){state.selectedBrandId=authorized?.brandId||'';state.selectedFamily=baseFamily(authorized?.family||'');state.selectedProductGroup=normalizeProductGroup(authorized?.family||storedGroup)||state.selectedFamily}else{state.selectedBrandId=byBrandId(stored)?.id||masterBrand()?.id||'';state.selectedFamily=storedFamily;state.selectedProductGroup=storedGroup||storedFamily;}
+        const stored=sessionStorage.getItem('keysuite-v391-product-brand'),storedFamily=baseFamily(sessionStorage.getItem('keysuite-v391-product-family')||'CHC'),storedGroup=normalizeProductGroup(sessionStorage.getItem('keysuite-v41413-product-group')||storedFamily),authorized=scopeEnforced()?resolveAuthorityTarget(stored,storedGroup):null;if(scopeEnforced()){state.selectedBrandId=authorized?.brandId||'';state.selectedFamily=baseFamily(authorized?.family||'');state.selectedProductGroup=normalizeProductGroup(authorized?.family||storedGroup)||state.selectedFamily}else{state.selectedBrandId=byBrandId(stored)?.id||masterBrand()?.id||'';state.selectedFamily=storedFamily;state.selectedProductGroup=storedGroup||storedFamily;}
         state.coreReady=true;renderProductTree();renderSelectorTree();renderBrands();decorateProductDisplay();
         dispatchBrandEvent('KEYSUITE_BRANDS_READY',{brands:state.brands.length,mappings:state.mappings.length,warning:state.coreError||''});
 
@@ -1105,7 +1105,7 @@
       if(current){
         const families=brandFamilies(current).filter(f=>
           ['CHC','ES','MOTOR'].includes(String(f.family||'').toUpperCase())&&
-          roleAllowsFamily(current.id,f.family)&&
+          roleAllowsFamily(current.id,f.family,f.productGroup||f.family)&&
           customerAllowsProduct(current.id,f.productGroup||f.family,f.family)
         );
         const same=families.find(f=>

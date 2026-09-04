@@ -4,7 +4,7 @@
   if(window.__KEYSUITE_V40407_ROLE_AUTHORITY__)return;
   window.__KEYSUITE_V40407_ROLE_AUTHORITY__=true;
 
-  const VERSION='4.17.08';
+  const VERSION='4.22.01';
   const FAMILIES=['CHC','ES'];
   const PRODUCT_PAGE_FAMILY={productChc:'CHC',productEs:'ES'};
   // V4.17.02: Product → Keylargo is an Owner-assigned role scope.
@@ -50,12 +50,13 @@
   const scopeKeys=()=>state.scope.keys.slice();
   const scopeSet=()=>new Set(scopeKeys());
   const brandSeriesLocked=()=>!can('choose_brand_series');
-  // Owner is unrestricted. Every non-Owner is always bounded by Role Brand Assigned,
-  // regardless of whether Change Brand / Series is Full or None.
-  const scopeEnforced=()=>role()!=='owner';
+  // V4.22.01: Role Brand / Series Assigned is the product-visibility source for every account,
+  // including Owner. Owner can manage all users, but the Owner's own Quick Selection / Product
+  // visibility still follows the Owner account's saved scope.
+  const scopeEnforced=()=>true;
   const allowedFamilies=()=>{
     if(!scopeEnforced())return FAMILIES.slice();
-    const explicit=scopeKeys().map(k=>upper(k.split('|')[1])).filter(f=>FAMILIES.includes(f));
+    const explicit=scopeKeys().map(k=>{const code=normalizeProductGroup(k.split('|')[1]);return familyOf(code)||code}).filter(f=>FAMILIES.includes(f));
     if(!wildcardKeys().length)return [...new Set(explicit)];
     const api=brandApi(),brands=api?.state?.brands||[],maps=api?.state?.mappings||[],wildBrands=new Set(wildcardKeys().map(k=>norm(k.split('|')[0]))),fromWild=[];
     let nonHouseWildcard=false;
@@ -80,22 +81,39 @@
   }
   function isBrandSeriesAllowed(brandId,family){
     if(!scopeEnforced())return true;
-    const set=scopeSet();return set.has(brandAllKey(brandId))||set.has(keyOf(brandId,family));
+    const bid=norm(brandId),requested=normalizeProductGroup(family),fam=familyOf(requested)||requested,set=scopeSet();
+    if(set.has(brandAllKey(bid)))return true;
+    if(requested&&set.has(keyOf(bid,requested)))return true;
+    // Backward compatibility: an older CHC scope authorizes both C4/G1 and C6/G2 until the Owner resaves it.
+    if((requested==='CHC_G1'||requested==='CHC_G2')&&set.has(keyOf(bid,'CHC')))return true;
+    // Generic CHC page access is valid when either CHC generation is assigned.
+    if(requested==='CHC'&&(set.has(keyOf(bid,'CHC'))||set.has(keyOf(bid,'CHC_G1'))||set.has(keyOf(bid,'CHC_G2'))))return true;
+    return false;
   }
   function resolveBrandSeries(brandId='',family=''){
-    const fam=upper(family);
-    if(!scopeEnforced())return {brandId:norm(brandId),family:fam};
-    const keys=scopeKeys();
-    const exact=keyOf(brandId,fam),all=brandAllKey(brandId);
-    if(norm(brandId)&&fam&&(keys.includes(exact)||keys.includes(all)))return {brandId:norm(brandId),family:fam};
-    let hit=keys.find(k=>upper(k.split('|')[1])!=='*'&&(!fam||upper(k.split('|')[1])===fam));
-    if(hit){const [id,f]=hit.split('|');return {brandId:norm(id),family:upper(f)}}
-    hit=keys.find(k=>upper(k.split('|')[1])==='*');if(!hit)return null;
-    const id=norm(hit.split('|')[0]),families=allowedFamilies(),resolvedFamily=fam&&families.includes(fam)?fam:(families[0]||fam||FAMILIES[0]);return {brandId:id,family:resolvedFamily};
+    const requested=normalizeProductGroup(family),fam=familyOf(requested)||requested;
+    if(!scopeEnforced())return {brandId:norm(brandId),family:requested||fam};
+    const keys=scopeKeys(),bid=norm(brandId),all=brandAllKey(bid);
+    if(bid&&requested&&keys.includes(all))return {brandId:bid,family:requested};
+    if(bid&&requested&&isBrandSeriesAllowed(bid,requested)){
+      if(keys.includes(keyOf(bid,requested)))return {brandId:bid,family:requested};
+      if((requested==='CHC_G1'||requested==='CHC_G2')&&keys.includes(keyOf(bid,'CHC')))return {brandId:bid,family:requested};
+      if(requested==='CHC'){
+        const gen=keys.includes(keyOf(bid,'CHC_G1'))?'CHC_G1':keys.includes(keyOf(bid,'CHC_G2'))?'CHC_G2':'CHC';
+        return {brandId:bid,family:gen};
+      }
+      return {brandId:bid,family:requested};
+    }
+    // An explicit Brand + Series request must never fall across to another CHC generation.
+    if(bid&&requested)return null;
+    let hit=keys.find(k=>{const code=normalizeProductGroup(k.split('|')[1]);if(code==='*')return false;const hitFam=familyOf(code)||code;return !fam||hitFam===fam});
+    if(hit){const [id,f]=hit.split('|');return {brandId:norm(id),family:normalizeProductGroup(f)}}
+    hit=keys.find(k=>normalizeProductGroup(k.split('|')[1])==='*');if(!hit)return null;
+    const id=norm(hit.split('|')[0]);return {brandId:id,family:requested||fam||'CHC_G2'};
   }
   function filterBrandSeriesEntries(entries=[]){
     if(!scopeEnforced())return Array.isArray(entries)?entries:[];
-    return (Array.isArray(entries)?entries:[]).filter(entry=>isBrandSeriesAllowed(entry?.brand?.id??entry?.brandId,entry?.family));
+    return (Array.isArray(entries)?entries:[]).filter(entry=>isBrandSeriesAllowed(entry?.brand?.id??entry?.brandId,entry?.productGroup||entry?.family));
   }
   function canOpenPage(id){
     if(Object.prototype.hasOwnProperty.call(SELECTOR_PAGE_FAMILY,id)){

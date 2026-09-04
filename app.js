@@ -1005,9 +1005,24 @@ function pumpPayloadCoupling(pump={}){
  if(/^flexible$/i.test(coupling))return 'Flexible';
  return coupling;
 }
+function pumpPdfChcVariant(pump={},rawModel=''){
+ const explicit=String(rawModel||'').trim().match(/\b(CHCS|CHCN|CHC)\b/i);if(explicit&&/^(CHCS|CHCN)$/i.test(explicit[1]))return explicit[1].toUpperCase();
+ const seriesCandidates=[pump.keysuite_selling_series,pump.selling_series,pump.keysuite_master_series,pump.master_series,pump.pumpData?.keysuite_selling_series,pump.pumpData?.selling_series];
+ for(const value of seriesCandidates){const hit=String(value||'').trim().match(/^(CHCS|CHCN|CHC)\b/i);if(hit)return hit[1].toUpperCase()}
+ const material=String(pump.keysuite_material||pump.material||pump.pumpData?.keysuite_material||pump.pumpData?.material||pump.export_state?.keysuite_material||pump.export_state?.material||'').toUpperCase().replace(/\s+/g,' ');
+ if(/(?:CAST\s*IRON|\bCI\b).*CONNECTION/.test(material))return 'CHC';
+ if(/SS\s*316/.test(material))return 'CHCN';
+ if(/SS\s*304/.test(material))return 'CHCS';
+ return explicit?.[1]?.toUpperCase()||'CHC';
+}
+function pumpPdfModelIdentity(rawModel,pump={}){
+ let model=stripQuotationBrand(String(rawModel||'Pump Model')).trim();
+ if(/\b(?:CHCS|CHCN|CHC)\b/i.test(model))model=model.replace(/\b(?:CHCS|CHCN|CHC)\b/i,pumpPdfChcVariant(pump,model));
+ return model;
+}
 function pumpPdfFilenameFromPayload(pump={},itemNumber=1){
- const rawModel=pump.quotation_model||pump.display_model||pump.model||pump.pumpData?.model||'Pump Model';
- const model=stripQuotationBrand(String(rawModel)).trim().replace(/\bCHCN\b/gi,'CHC');
+ const rawModel=pump.keysuite_display_model||pump.quotation_model||pump.display_model||pump.model||pump.pumpData?.model||'Pump Model';
+ const model=pumpPdfModelIdentity(rawModel,pump);
  const isEs=isEsSelectionPayload(pump),bare=!!(pump.keysuite_bare_shaft||pump.export_state?.bareShaft||String(pump.keysuite_supply_mode||'').toUpperCase()==='BARE');
  const hp=Number(pump.motor_hp??pump.pumpData?.motorHp),pole=Number(pump.pole),efficiency=String(pump.motor_efficiency_class??pump.pumpData?.motorEfficiencyClass??pump.export_state?.motorEfficiencyClass??'').trim().toUpperCase();
  const motorBits=[];
@@ -1020,7 +1035,7 @@ function pumpPdfFilenameFromPayload(pump={},itemNumber=1){
 function quotePumpPdfFilename(row,itemNumber){
  let pump={};try{pump=JSON.parse(row?.dataset?.pumpData||'{}')}catch(_){}
  const rawModel=splitCapacityModel(row?.querySelector('.item-model')?.value||'').base||pump.quotation_model||pump.display_model||pump.model||'Pump Model';
- const model=stripQuotationBrand(rawModel).trim().replace(/\bCHCN\b/gi,'CHC');
+ const model=pumpPdfModelIdentity(rawModel,pump);
  const isEs=isEsSelectionPayload(pump),bare=!!(pump.keysuite_bare_shaft||pump.export_state?.bareShaft||String(pump.keysuite_supply_mode||'').toUpperCase()==='BARE');
  const description=String(row?.querySelector('.item-description')?.value||'');
  const motorMatch=description.match(/\bc\/?w\s+([0-9]+(?:\.[0-9]+)?)\s*HP\s+([2468])\s*(?:P|Pole)\s+(IE\d)\b/i);
