@@ -111,7 +111,7 @@
   }
 
   function renderModelsG1(){
-    const query=String($('productModelInput')?.value||'').trim().toLowerCase();let rows=g1Products().filter(p=>seriesName(p.model)===selectedSeries);if(query)rows=rows.filter(p=>String(p.model).toLowerCase().includes(query));rows.sort((a,b)=>natural(a.model,b.model));
+    const query=String($('productModelInput')?.value||'').trim().toLowerCase();let rows=g1Products().filter(p=>seriesName(p.model)===selectedSeries);if(query)rows=rows.filter(p=>String(p.model).toLowerCase().includes(query));
     $('productSeriesTitle').textContent=selectedSeries||'Models';$('productModelCount').textContent=`${rows.length} G1 model${rows.length===1?'':'s'}`;
     $('productModelGrid').innerHTML=rows.length?rows.map(p=>`<div class="product-model-row" data-product-generation="G1"><h3>${esc(p.model)}</h3><div class="product-model-actions"><button class="btn secondary product-action-button" type="button" data-product-g1-view="${esc(p.model)}">Curve</button><button class="btn action-assembly product-action-button" type="button" data-product-g1-assembly="${esc(p.model)}">Assembly</button><button class="btn action-quote product-action-button" type="button" data-product-g1-add="${esc(p.model)}">Quote</button></div></div>`).join(''):'<div class="product-empty">No matching CHC C4 models.</div>';
     const grid=$('productModelGrid');

@@ -4,7 +4,7 @@
   if (window.__KEYSUITE_V394410_MULTIBRAND__) return;
   window.__KEYSUITE_V394410_MULTIBRAND__=true;
 
-  const VERSION='4.22.02';
+  const VERSION='4.22.04';
   const $=id=>document.getElementById(id);
   const clone=v=>JSON.parse(JSON.stringify(v??{}));
   const esc=v=>String(v??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -280,8 +280,10 @@
     const ctx=brandContext(state.selectedBrandId,state.selectedFamily,materialOverride); if(!ctx)return;
     // V3.9.4.4.3: targeted/event-driven handoff only. Never sweep every iframe.
     const send=frame=>{try{if(frame?.contentWindow)frame.contentWindow.postMessage({type:'KEYSUITE_V393_BRAND_CONTEXT',brand:ctx},'*')}catch(_){}};
-    if(['productChc','selector'].includes(page))send($('selectorFrame'));
-    if(['productEs','selectorEs'].includes(page))send($('selectorEsFrame'));
+    if(page==='selector')send($('selectorFrame'));
+    if(page==='productChc')send($('productSelectorFrame'));
+    if(page==='selectorEs')send($('selectorEsFrame'));
+    if(page==='productEs')send($('productEsSelectorFrame'));
     try{window.dispatchEvent(new CustomEvent('KEYSUITE_V393_BRAND_CONTEXT_CHANGED',{detail:{...ctx,page:page||''}}));}catch(_){}
     decorateProductDisplay();
   }
