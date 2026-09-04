@@ -1003,10 +1003,45 @@ function keychcG1DimensionImage(series){
  return key?G1_DIMENSION_IMAGES[key]:'';
 }
 // B4.06.10: product CHC exports use the same explicit .pdf print-job title as the main CHC selector.
+
+function keysuiteChcPresentationContext(){
+ let fresh={},pinned={},locked={};
+ try{const x=window.__KEYSUITE_MODEL_PRESENTATION_CONTEXT;if(x&&typeof x==='object')pinned=x;}catch(_){}
+ try{const x=window.__KEYSUITE_PDF_PRESENTATION_SNAPSHOT;if(x&&typeof x==='object')locked=x;}catch(_){}
+ try{
+  if(window.parent&&window.parent!==window){
+   const p=window.parent,a=p.KeySuiteV40001||p.KeySuiteV394410||p.KeySuiteV39449||p.KeySuiteV39446||p.KeySuiteV39445||p.KeySuiteV39444||p.KeySuiteV3944||p.KeySuiteV3943||p.KeySuiteV3942||p.KeySuiteV3941||p.KeySuiteV391;
+   const material=String(window.keysuiteExportPayload?.keysuite_material||pinned?.material||locked?.material||'').trim();
+   fresh=a?.brandContext?.(a?.state?.selectedBrandId,'CHC',material)||{};
+  }
+ }catch(_){}
+ // Fresh Brand/Series is the normal screen source. Pinned/PDF identity overrides it only
+ // when the caller deliberately froze a Product/PDF presentation for this exact render.
+ return {...fresh,...pinned,...locked};
+}
+function keysuiteChcPresentationAlias(value){
+ let out=String(value??''),ctx=keysuiteChcPresentationContext(),target=String(ctx?.sellingSeries||ctx?.masterSeries||'').trim();
+ if(target)out=out.replace(/^(?:CHCS|CHCN|CHC)\b/i,target);
+ try{
+  const logo=String(ctx?.logo||'').trim(),name=String(ctx?.name||'Brand').trim();
+  if(logo){
+   document.querySelectorAll('header .brand-logo,.brand-wrap > .brand-logo,.top > .brand img,.top .brand > img,img.brand-logo').forEach(img=>{if(img.getAttribute('src')!==logo)img.setAttribute('src',logo);img.alt=name;});
+  }
+ }catch(_){}
+ return out;
+}
+function keysuiteChcApplyBrandingToReport(html){
+ let out=String(html??''),ctx=keysuiteChcPresentationContext(),logo=String(ctx?.logo||'').trim(),name=String(ctx?.name||'B.G.Reich').trim();
+ if(logo){
+  out=out.replace(/(<img\b[^>]*class=["'][^"']*\bbrand-logo\b[^"']*["'][^>]*\bsrc=["'])[^"']*(["'])/gi,(m,a,b)=>a+String(logo).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;')+b);
+  out=out.replace(/(<img\b[^>]*class=["'][^"']*\bbrand-logo\b[^"']*["'][^>]*\balt=["'])[^"']*(["'])/gi,(m,a,b)=>a+String(name).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;')+b);
+ }
+ return out;
+}
 function exportPDF(requestedFilename){
  const best=keychcCurrentDisplayModel();
  if(!best)return;
- const displayModel=best._keysuiteDisplayModel||best.model;
+ const displayModel=keysuiteChcPresentationAlias(best._keysuiteDisplayModel||best.model);
  let resolvedFilename=requestedFilename;
  if(!resolvedFilename&&window.parent&&window.parent!==window){try{const api=window.parent.KeySuitePumpPdfNames,payload=window.__KEYSUITE_CURRENT_SELECTION?.();if(api&&typeof api.nextFromPayload==='function'&&payload)resolvedFilename=api.nextFromPayload(payload)}catch(_){}}
  const pdfFileTitleRaw=String(resolvedFilename||displayModel||'Pump Model').trim();
@@ -1278,7 +1313,7 @@ window.onload=async()=>{
    }
    try{
      mobilePrintWindow.document.open();
-     mobilePrintWindow.document.write(report);
+     mobilePrintWindow.document.write(keysuiteChcApplyBrandingToReport(report));
      mobilePrintWindow.document.close();
      try{mobilePrintWindow.document.title=pdfFileTitle;mobilePrintWindow.__KEYSUITE_PDF_FILE_TITLE__=pdfFileTitle;mobilePrintWindow.addEventListener('beforeprint',()=>{try{mobilePrintWindow.document.title=pdfFileTitle;}catch(_){}});}catch(_){}
      setTimeout(()=>{restorePrintTitles();try{flowInput.disabled=false;headInput.disabled=false;}catch(e){}},1000);
@@ -1317,7 +1352,7 @@ window.onload=async()=>{
  };
  try{
    printDocument.open();
-   printDocument.write(report);
+   printDocument.write(keysuiteChcApplyBrandingToReport(report));
    printDocument.close();
    try{printDocument.title=pdfFileTitle;printWindow.__KEYSUITE_PDF_FILE_TITLE__=pdfFileTitle;frame.name=pdfFileTitle;frame.title=pdfFileTitle;printWindow.addEventListener('beforeprint',()=>{try{printDocument.title=pdfFileTitle;frame.name=pdfFileTitle;frame.title=pdfFileTitle;document.title=pdfFileTitle;if(window.top&&window.top!==window)window.top.document.title=pdfFileTitle;}catch(_){}});}catch(_){}
    printWindow.addEventListener("afterprint",cleanupPrintFrame,{once:true});
@@ -1591,10 +1626,10 @@ function renderSelected(){
  const rangeNotice=outside?`<div class="warning">D1 (${q.toFixed(1)} m³/h) is outside this selected model's displayed flow range at ${hz.toFixed(1)} Hz. The selected model is intentionally being kept for speed simulation.</div>`:'';
  const powerNotice=powerOver?`<div class="warning">At D1 and ${hz.toFixed(1)} Hz, calculated shaft power is ${requiredPower.toFixed(2)} kW, above the selected ${best.motor_kw.toFixed(2)} kW motor. Re-check motor/VFD sizing before use.</div>`:'';
  const pLegend=hc.parallelCounts.map(n=>`<span class="legend-item"><i class="legend-line" style="border-color:${keychcParallelColor(n)};${n===1?'':'border-top-style:dashed;border-top-width:2px'}"></i>${n}P</span>`).join('');
- const displayModel=best._keysuiteDisplayModel||best.model;
+ const displayModel=keysuiteChcPresentationAlias(best._keysuiteDisplayModel||best.model);
  out.innerHTML=`
  <div class="selection-hero">
-   <div><div class="selection-eyebrow">Selected Pump</div><div class="selection-model">${displayModel}</div><div class="selection-sub">${best.series} · ${best.stages} stage${best.stages>1?'s':''} · ${best.connection}</div><span class="selection-status">SELECTED</span></div>
+   <div><div class="selection-eyebrow">Selected Pump</div><div class="selection-model">${displayModel}</div><div class="selection-sub">${keysuiteChcPresentationAlias(best.series)} · ${best.stages} stage${best.stages>1?'s':''} · ${best.connection}</div><span class="selection-status">SELECTED</span></div>
    <div class="selection-drive"><div class="drive-model">${formatHP(best.motor_hp)} &nbsp; | &nbsp; ${motorClass}</div><div>${best.motor_kw.toFixed(2)} kW &nbsp; | &nbsp; Curve ${hz.toFixed(1)} Hz</div><div>${best.rpm.toFixed(0)} rpm · Selected @ ${selectionHz.toFixed(1)} Hz</div><div class="selection-action-row"><button class="summary-toggle-btn" type="button" onclick="toggleKeyCHCSummary()">Summary ${keychcSummaryCollapsed?'▶':'▼'}</button></div></div>
  </div>${speedNotice}${rangeNotice}${powerNotice}
  ${keychcProductImpellerEditor(best)}
@@ -1797,7 +1832,7 @@ alternatives.innerHTML='';
   try{
    if(!selectionState?.models?.length)return null;
    const base=selectionState.models[selectionState.selectedIndex||0];const b=keychcCurrentDisplayModel()||base;const ks=liveOptions();
-   const displayModel=b._keysuiteDisplayModel||b.model,baseModel=b._keysuitePricingBaseModel||b._keysuiteSourceModel||b.model,mix=parseImpellerMix(b);
+   const displayModel=keysuiteChcPresentationAlias(b._keysuiteDisplayModel||b.model),baseModel=b._keysuitePricingBaseModel||b._keysuiteSourceModel||b.model,mix=parseImpellerMix(b);
    return {source:'KeyCHC-G1-KeySuite-V4.21.14',family:'CHC',generation_code:'G1',keysuite_generation_code:'G1',keysuite_product_group_code:'CHC_G1',keysuite_price_group_code:'CHC_G1',generation_code:'G1',model:b.model,base_model:baseModel,display_model:displayModel,quotation_model:displayModel,hydraulic_equivalent:b._keysuiteHydraulicEquivalent||'',impeller_reduction:Number(b._keysuiteReduction||0),impeller_full:mix.full,impeller_small:mix.small,impeller_mini:mix.smallest,total_impellers:mix.total,series:b.series,stages:b.stages,connection:b.connection,motor_kw:b.motor_kw,motor_hp:b.motor_hp,shaft_kw:b.shaft,efficiency:b.eff,npshr:b.npsh,speed_rpm:b.rpm,pole:keychcPoleFromRpm(b.rpm),frequency_hz:Number(selectionState.curveHz||selectionState.hz||50),flow_m3h:selectionState.q,head_m:selectionState.h,raw_flow:selectionState.rawFlow,raw_head:selectionState.rawHead,flow_unit:selectionState.flowUnit,head_unit:selectionState.headUnit,motor_efficiency_class:motorEff.value,motor_phase:motorPhase.value,motor_voltage:Number(motorVoltage.value),product_mode:!!selectionState.productMode,keysuite_material:ks.keysuite_material,keysuite_seal:ks.keysuite_seal,keysuite_elastomer:ks.keysuite_elastomer,keysuite_connection_type:ks.keysuite_connection_type,keysuite_bare_shaft:ks.keysuite_bare_shaft,keysuite_supply_mode:ks.keysuite_bare_shaft?'BARE':'COMPLETE',export_state:{...selectionState,motorEffClass:motorEff.value,motorPhase:motorPhase.value,motorVoltage:Number(motorVoltage.value),models:[base],selectedIndex:0}};
   }catch(e){console.warn('KeySuite CHC payload error',e);return null}
  }

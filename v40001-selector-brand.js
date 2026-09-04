@@ -1,4 +1,4 @@
-/* KeySuite V4.01 — live material + assigned Brand logo PDF identity.
+/* KeySuite V4.22.02 — selling Brand/Sub Series is resolved before selector/PDF first render.
    Selling brand/model/logo stay fixed to the selected OEM, while the material-dependent CHC sub-series and CHC/ES technical materials refresh immediately. */
 (() => {
   'use strict';
@@ -483,5 +483,5 @@
     try{delete frame.contentWindow.__KEYSUITE_MODEL_PRESENTATION_CONTEXT;delete frame.contentWindow.__KEYSUITE_HIDE_INNER_ACTIONS;applyPinnedChrome(frame.contentDocument,frame.contentWindow);if(isActiveFrame(frame))refresh(frame);return true}catch(_){return false}
   }
 
-  window.KeySuiteSelectorBrand={version:'4.01',refresh,getDefaultLogo:()=>defaultBrandLogo,refreshLogo:()=>refresh(),modelAlias:text=>modelAlias(text,context()),modelAliasFor:(text,ctx)=>modelAlias(text,ctx),brandAlias:text=>brandAlias(text,context()),context,collapseSummaryForFrame,pinContext,clearPinnedContext,transformReportHtml,installReportWriteTransform,liveMaterial,materialProfile};window.KeySuiteV40001SelectorBrand=window.KeySuiteSelectorBrand;
+  window.KeySuiteSelectorBrand={version:'4.22.02',refresh,getDefaultLogo:()=>defaultBrandLogo,refreshLogo:()=>refresh(),modelAlias:text=>modelAlias(text,context()),modelAliasFor:(text,ctx)=>modelAlias(text,ctx),brandAlias:text=>brandAlias(text,context()),context,collapseSummaryForFrame,pinContext,clearPinnedContext,transformReportHtml,installReportWriteTransform,liveMaterial,materialProfile};window.KeySuiteV40001SelectorBrand=window.KeySuiteSelectorBrand;
 })();

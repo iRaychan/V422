@@ -603,7 +603,42 @@ const KEYSUITE_ENHANCED_MAX_HZ=60;
 const KEYSUITE_ENHANCED_MAX_RATIO=KEYSUITE_ENHANCED_MAX_HZ/DB.base_hz;
 const KEYSUITE_ENHANCED_MAX_RPM=3480;
 function keychcEnhancedModelName(model){const raw=String(model||'').trim();return raw&& !/E$/i.test(raw)?raw+'E':raw;}
-function keychcVisibleModelName(model,enhanced=!!selectionState?.enhanced){return enhanced?keychcEnhancedModelName(model):String(model||'');}
+
+function keysuiteChcPresentationContext(){
+ let fresh={},pinned={},locked={};
+ try{const x=window.__KEYSUITE_MODEL_PRESENTATION_CONTEXT;if(x&&typeof x==='object')pinned=x;}catch(_){}
+ try{const x=window.__KEYSUITE_PDF_PRESENTATION_SNAPSHOT;if(x&&typeof x==='object')locked=x;}catch(_){}
+ try{
+  if(window.parent&&window.parent!==window){
+   const p=window.parent,a=p.KeySuiteV40001||p.KeySuiteV394410||p.KeySuiteV39449||p.KeySuiteV39446||p.KeySuiteV39445||p.KeySuiteV39444||p.KeySuiteV3944||p.KeySuiteV3943||p.KeySuiteV3942||p.KeySuiteV3941||p.KeySuiteV391;
+   const material=String(window.keysuiteExportPayload?.keysuite_material||pinned?.material||locked?.material||'').trim();
+   fresh=a?.brandContext?.(a?.state?.selectedBrandId,'CHC',material)||{};
+  }
+ }catch(_){}
+ // Fresh Brand/Series is the normal screen source. Pinned/PDF identity overrides it only
+ // when the caller deliberately froze a Product/PDF presentation for this exact render.
+ return {...fresh,...pinned,...locked};
+}
+function keysuiteChcPresentationAlias(value){
+ let out=String(value??''),ctx=keysuiteChcPresentationContext(),target=String(ctx?.sellingSeries||ctx?.masterSeries||'').trim();
+ if(target)out=out.replace(/^(?:CHCS|CHCN|CHC)\b/i,target);
+ try{
+  const logo=String(ctx?.logo||'').trim(),name=String(ctx?.name||'Brand').trim();
+  if(logo){
+   document.querySelectorAll('header .brand-logo,.brand-wrap > .brand-logo,.top > .brand img,.top .brand > img,img.brand-logo').forEach(img=>{if(img.getAttribute('src')!==logo)img.setAttribute('src',logo);img.alt=name;});
+  }
+ }catch(_){}
+ return out;
+}
+function keysuiteChcApplyBrandingToReport(html){
+ let out=String(html??''),ctx=keysuiteChcPresentationContext(),logo=String(ctx?.logo||'').trim(),name=String(ctx?.name||'B.G.Reich').trim();
+ if(logo){
+  out=out.replace(/(<img\b[^>]*class=["'][^"']*\bbrand-logo\b[^"']*["'][^>]*\bsrc=["'])[^"']*(["'])/gi,(m,a,b)=>a+String(logo).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;')+b);
+  out=out.replace(/(<img\b[^>]*class=["'][^"']*\bbrand-logo\b[^"']*["'][^>]*\balt=["'])[^"']*(["'])/gi,(m,a,b)=>a+String(name).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;')+b);
+ }
+ return out;
+}
+function keychcVisibleModelName(model,enhanced=!!selectionState?.enhanced){return keysuiteChcPresentationAlias(enhanced?keychcEnhancedModelName(model):String(model||''));}
 function keychcEnhancedEnabled(){const el=document.getElementById('enhancedMode');return !!(el?el.checked:selectionState?.enhanced)}
 function keychcMixedRawPoint(curve,mix,i){
  const q=Number(curve.flow?.[i]),hf=Number(curve.head_per_stage?.[i]);if(!Number.isFinite(q)||!Number.isFinite(hf))return null;
@@ -1195,7 +1230,7 @@ window.onload=async()=>{
  }
  try{
    printWindow.document.open();
-   printWindow.document.write(report);
+   printWindow.document.write(keysuiteChcApplyBrandingToReport(report));
    printWindow.document.close();
    try{
      printWindow.document.title=pdfFileTitle;
@@ -1403,7 +1438,7 @@ function renderSelected(){
  const driveDetail=enhanced?`<div>${best.motor_kw.toFixed(2)} kW &nbsp; | &nbsp; Enhanced</div><div>${KEYSUITE_ENHANCED_MAX_RPM} rpm · ${KEYSUITE_ENHANCED_MAX_HZ} Hz</div>`:`<div>${best.motor_kw.toFixed(2)} kW &nbsp; | &nbsp; Curve ${hz.toFixed(1)} Hz</div><div>${best.rpm.toFixed(0)} rpm · Selected @ ${selectionHz.toFixed(1)} Hz</div>`;
  out.innerHTML=`
  <div class="selection-hero">
-   <div><div class="selection-eyebrow">Selected Pump</div><div class="selection-model">${keychcVisibleModelName(best.model,enhanced)}</div><div class="selection-sub">${best.series} · ${best.stages} stage${best.stages>1?'s':''} · ${best.connection}${enhanced?' · Enhanced':''}</div><span class="selection-status">${enhanced?'SELECTED · ENHANCED':'SELECTED'}</span></div>
+   <div><div class="selection-eyebrow">Selected Pump</div><div class="selection-model">${keychcVisibleModelName(best.model,enhanced)}</div><div class="selection-sub">${keysuiteChcPresentationAlias(best.series)} · ${best.stages} stage${best.stages>1?'s':''} · ${best.connection}${enhanced?' · Enhanced':''}</div><span class="selection-status">${enhanced?'SELECTED · ENHANCED':'SELECTED'}</span></div>
    <div class="selection-drive"><div class="drive-model">${formatHP(best.motor_hp)} &nbsp; | &nbsp; ${motorClass}</div>${driveDetail}<div class="selection-action-row"><button class="summary-toggle-btn" type="button" onclick="toggleKeyCHCSummary()">Summary ${keychcSummaryCollapsed?'▶':'▼'}</button></div></div>
  </div>${speedNotice}${rangeNotice}${powerNotice}
  <div class="kpis ${keychcSummaryCollapsed?'summary-collapsed':''}">

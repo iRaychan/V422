@@ -4,7 +4,7 @@
   if(window.__KEYSUITE_V40407_ROLE_AUTHORITY__)return;
   window.__KEYSUITE_V40407_ROLE_AUTHORITY__=true;
 
-  const VERSION='4.22.01';
+  const VERSION='4.22.02';
   const FAMILIES=['CHC','ES'];
   const PRODUCT_PAGE_FAMILY={productChc:'CHC',productEs:'ES'};
   // V4.17.02: Product → Keylargo is an Owner-assigned role scope.
